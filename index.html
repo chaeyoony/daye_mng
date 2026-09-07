@@ -1,0 +1,2479 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>다예 학교 생활</title>
+
+<!-- 홈 화면 추가(PWA) 아이콘 -->
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<meta name="theme-color" content="#1e3a5f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="다예 생활">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lunar-javascript/1.6.3/lunar.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --accent: #1e3a5f;
+  --accent-light: #eff6ff;
+  --bg: #f8f9fa;
+  --card: #ffffff;
+  --border: #e2e8f0;
+  --text: #1a202c;
+  --sub: #64748b;
+  --danger: #ef4444;
+  --success: #22c55e;
+  --nav-w: 220px;
+}
+body.work-mode {
+  --accent: #0ea5e9;
+  --accent-light: #e0f2fe;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{text-decoration:none;color:inherit}
+button{cursor:pointer;font-family:inherit}
+input,select,textarea{font-family:inherit}
+
+/* Layout */
+#app{display:flex;min-height:100vh}
+#sidebar{width:var(--nav-w);background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100;transition:transform .3s}
+#main{margin-left:var(--nav-w);flex:1;display:flex;flex-direction:column;min-height:100vh}
+#topbar{background:var(--card);border-bottom:1px solid var(--border);padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+#content{flex:1;padding:24px;max-width:1100px;width:100%;overflow-x:hidden}
+
+/* Sidebar */
+.sb-logo{padding:20px 16px 12px;border-bottom:1px solid var(--border)}
+.sb-logo h2{font-size:16px;font-weight:700;color:var(--accent)}
+.sb-logo p{font-size:11px;color:var(--sub);margin-top:2px}
+.sb-mode-toggle{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:6px}
+.mode-btn{flex:1;padding:6px 0;border-radius:8px;border:none;font-size:13px;font-weight:600;background:var(--bg);color:var(--sub);transition:.2s}
+.mode-btn.active{background:var(--accent);color:#fff}
+.sb-nav{flex:1;overflow-y:auto;padding:8px 0}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:14px;color:var(--sub);border-radius:0;cursor:pointer;transition:.15s;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:var(--accent-light);color:var(--accent)}
+.nav-item.active{background:var(--accent-light);color:var(--accent);font-weight:700}
+.nav-icon{font-size:16px;width:22px;text-align:center}
+
+/* Topbar */
+#page-title{display:none!important;font-size:17px;font-weight:700;color:var(--accent)}
+#mobile-menu-btn{display:none;background:none;border:none;font-size:22px;padding:4px 8px}
+#mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:90}
+
+/* Bottom nav (mobile) */
+#bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);z-index:100;flex-wrap:nowrap;overflow-x:auto}
+.bn-item{flex:1;min-width:60px;display:flex;flex-direction:column;align-items:center;padding:8px 4px;font-size:10px;color:var(--sub);border:none;background:none;gap:3px}
+.bn-item.active{color:var(--accent);font-weight:700}
+.bn-icon{font-size:18px}
+
+/* Cards & Stats */
+.stat-grid{display:grid;gap:12px;margin-bottom:20px}
+.stat-card{background:var(--card);border-radius:14px;padding:18px;border:1px solid var(--border)}
+.s-label{font-size:12px;color:var(--sub);margin-bottom:6px}
+.s-val{font-size:28px;font-weight:800;color:var(--accent)}
+.s-sub{font-size:11px;color:var(--sub);margin-top:4px}
+.dash-section{background:var(--card);border-radius:14px;padding:18px;border:1px solid var(--border);margin-bottom:16px}
+.dash-section h3{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--accent)}
+.dash-event-item{font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)}
+.dash-event-item:last-child{border-bottom:none}
+
+/* Page */
+.page{display:none;overflow-x:hidden;max-width:100%}
+.page.active{display:block}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.page-header h2{font-size:20px;font-weight:800}
+
+/* Buttons */
+.btn{padding:8px 16px;border-radius:10px;border:none;font-size:14px;font-weight:600;transition:.15s;white-space:nowrap;flex-shrink:0}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{opacity:.88}
+.btn-ghost{background:transparent;border:1.5px solid var(--border);color:var(--text)}
+.btn-ghost:hover{background:var(--bg)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-sm{padding:6px 12px;font-size:13px}
+.btn-xs{padding:4px 8px;font-size:12px;border-radius:6px}
+
+/* Calendar */
+.cal-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.cal-nav button{background:none;border:1.5px solid var(--border);border-radius:8px;padding:5px 10px;font-size:14px}
+.cal-nav span{font-size:16px;font-weight:700}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.cal-dow{background:var(--bg);text-align:center;padding:8px 2px;font-size:12px;font-weight:600;color:var(--sub)}
+.cal-cell{min-height:90px;min-width:0;overflow:hidden;background:var(--card);padding:5px;border:0.5px solid var(--border);cursor:pointer;vertical-align:top}
+.cal-cell:hover{background:var(--accent-light)}
+.cal-cell.other-month{opacity:.4}
+.cal-cell.today{background:var(--accent-light)}
+.cal-date{font-size:12px;font-weight:600;margin-bottom:3px}
+.cal-date.sun{color:#ef4444}
+.cal-date.sat{color:#3b82f6}
+.cal-date.holiday{color:#ef4444}
+.holiday-chip{font-size:10px;padding:1px 5px;margin-bottom:2px;color:#ef4444;font-weight:700;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;line-height:1.35}
+.ev-chip{font-size:10px;padding:1px 5px;border-radius:4px;margin-bottom:2px;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;line-height:1.35;cursor:pointer;display:block;color:#fff;max-width:100%}
+
+/* Todo */
+.todo-list{display:flex;flex-direction:column;gap:8px}
+.todo-item{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.todo-item.done .todo-text{text-decoration:line-through;color:var(--sub)}
+.todo-text{flex:1;font-size:14px}
+.todo-check{width:20px;height:20px;border-radius:6px;border:2px solid var(--border);appearance:none;cursor:pointer;accent-color:var(--accent)}
+.todo-check:checked{background:var(--accent);border-color:var(--accent)}
+.drag-handle{color:var(--sub);cursor:grab;font-size:16px;padding:0 4px}
+.todo-delete{background:none;border:none;color:var(--sub);font-size:16px;padding:2px 6px}
+
+/* Tag badge */
+.tag-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+
+/* Forms */
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:13px;font-weight:600;color:var(--sub);margin-bottom:5px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--card);color:var(--text)}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--accent)}
+.form-group textarea{resize:vertical;min-height:60px}
+
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--card);border-radius:18px;padding:24px;max-width:460px;width:100%;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:17px;font-weight:700;margin-bottom:18px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+
+/* Notes */
+.note-list{display:flex;flex-direction:column;gap:8px}
+.note-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer}
+.note-card:hover{border-color:var(--accent)}
+.note-card h4{font-size:14px;font-weight:700;margin-bottom:4px}
+.note-card p{font-size:12px;color:var(--sub)}
+.note-editor{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
+.note-editor textarea{width:100%;border:none;outline:none;font-size:14px;line-height:1.7;resize:none;min-height:300px;background:transparent}
+
+/* Weekly */
+.week-day-section{margin-bottom:18px}
+.week-day-section h4{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid var(--accent-light)}
+
+/* Curriculum */
+.curriculum-list{display:flex;flex-direction:column;gap:10px}
+.curriculum-item{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;justify-content:space-between;align-items:center}
+
+/* Vacation */
+.vac-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.vac-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center}
+.vac-num{font-size:24px;font-weight:800;color:var(--accent)}
+.vac-label{font-size:12px;color:var(--sub);margin-top:4px}
+
+/* Habit Tracker */
+.ht-tab-btn{padding:8px 20px;border:none;background:none;font-size:14px;font-weight:600;color:var(--sub);border-bottom:3px solid transparent;cursor:pointer;transition:.15s}
+.ht-tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.ht-sub-btn{padding:6px 16px;border:1.5px solid var(--border);border-radius:20px;font-size:13px;background:none;color:var(--sub);cursor:pointer;transition:.15s}
+.ht-sub-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.ht-cal-dow-row{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:2px}
+.ht-cal-dow{text-align:center;font-size:11px;font-weight:600;color:var(--sub);padding:4px}
+.ht-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.ht-cell{min-height:70px;background:var(--card);border:0.5px solid var(--border);border-radius:6px;padding:4px;font-size:11px}
+.ht-cell.today{border:2px solid var(--accent);background:var(--accent-light)}
+.ht-cell-date{font-weight:700;margin-bottom:2px;font-size:11px}
+.ht-dot-row{display:flex;flex-wrap:wrap;gap:2px}
+.ht-dot{width:10px;height:10px;border-radius:50%;cursor:pointer}
+.ht-chip-col{display:flex;flex-direction:column;gap:2px;margin-top:2px}
+.ht-name-chip{font-size:10px;font-weight:600;padding:1px 5px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;line-height:1.5}
+.ht-detail-row{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:8px}
+.ht-detail-label{flex:1;font-size:14px;font-weight:600}
+.ht-detail-dots{display:flex;flex-wrap:wrap;gap:4px;flex:2}
+.ht-detail-dot{width:16px;height:16px;border-radius:50%;cursor:pointer;border:2px solid #e2e8f0}
+.ht-detail-dot.filled{border:none}
+.ht-day-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.ht-day-item:last-child{border-bottom:none}
+.ht-day-dot{width:18px;height:18px;border-radius:50%;flex-shrink:0;cursor:pointer}
+.ht-day-name{flex:1;font-size:14px}
+.ht-reorder-item{display:flex;align-items:center;gap:10px;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:6px}
+
+/* Bottom sheet */
+.bottom-sheet{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-radius:18px 18px 0 0;padding:20px;z-index:300;max-height:80vh;overflow-y:auto;transform:translateY(100%);transition:transform .3s}
+.bottom-sheet.open{transform:translateY(0)}
+.bs-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:290}
+.bs-overlay.open{display:block}
+
+/* Responsive */
+@media (max-width:768px) {
+  #sidebar{transform:translateX(-100%)}
+  #sidebar.open{transform:translateX(0)}
+  #mobile-overlay.open{display:block}
+  #main{margin-left:0;padding-bottom:70px}
+  #mobile-menu-btn{display:block}
+  #bottom-nav{display:flex}
+  #content{padding:16px}
+  .cal-cell{min-height:60px}
+  .vac-summary{grid-template-columns:repeat(3,1fr)}
+  .modal{margin:0;border-radius:18px 18px 0 0;max-height:85vh;position:fixed;bottom:0;left:0;right:0;max-width:100%}
+  .modal-overlay{align-items:flex-end;padding:0}
+}
+@media (min-width:769px) and (max-width:1100px) {
+  :root{--nav-w:200px}
+  #content{padding:20px}
+}
+
+/* ---- 전역 오버플로우/폼 보정 ---- */
+html,body{overflow-x:hidden}
+.form-group input,.form-group select,.form-group textarea{min-width:0}
+.modal{display:flex;flex-direction:column}
+.modal-footer{position:sticky;bottom:0;background:var(--card);padding-top:10px;margin-top:14px;z-index:2}
+
+/* ---- 노트 서식(글머리/번호 목록) 표시 - 에디터/조회 공통 ---- */
+.rich-content{word-break:break-word}
+.rich-content ol,.rich-content ul{list-style:none;padding-left:26px;margin:6px 0}
+.rich-content li{position:relative;margin:3px 0}
+.rich-content ul>li::before{content:"\2022";position:absolute;left:-16px}
+.rich-content ol{counter-reset:nt1}
+.rich-content ol>li{counter-increment:nt1}
+.rich-content ol>li::before{content:counter(nt1) ".";position:absolute;left:-26px;width:22px}
+.rich-content ol ol{counter-reset:nt2;margin:2px 0}
+.rich-content ol ol>li{counter-increment:nt2}
+.rich-content ol ol>li::before{content:counter(nt2) ")"}
+.rich-content ol ol ol{counter-reset:nt3}
+.rich-content ol ol ol>li{counter-increment:nt3}
+.rich-content ol ol ol>li::before{content:"(" counter(nt3) ")"}
+
+/* ---- 할 일 내용 인라인 수정 ---- */
+.todo-text[contenteditable="true"]{cursor:text;border-radius:6px;padding:2px 4px;margin:-2px -4px}
+.todo-text[contenteditable="true"]:focus{outline:1.5px dashed var(--accent);background:var(--accent-light)}
+
+/* ---- 우선순위 선택 점(높음/중간/낮음 동시 표시) ---- */
+.prio-dot{width:16px;height:16px;border-radius:50%;border:2px solid transparent;padding:0;cursor:pointer;flex-shrink:0}
+.prio-dot.active{border-color:var(--text);box-shadow:0 0 0 1px var(--card) inset}
+
+/* ---- 모바일 상단바: 사이드메뉴 대신 사이트 제목 + 모드 전환 ---- */
+@media (max-width:768px){
+  #mobile-menu-btn{display:none}
+  #page-title{display:block!important;font-size:18px;font-weight:800}
+  #topbar-mode-toggle{display:flex!important}
+}
+/* ---- 좁은 화면(작은 폰)에서 상단바/이번 주·오늘 할 일 입력줄이 화면 밖으로 밀리지 않도록 여유 확보 ---- */
+@media (max-width:420px){
+  #topbar{padding:0 14px}
+  #page-title{font-size:15px}
+  #topbar-mode-toggle button{padding:4px 9px!important;font-size:11px!important}
+  #week-input,#today-am-input,#today-pm-input{padding:7px 10px!important;font-size:13px!important}
+  .prio-dot{width:14px!important;height:14px!important}
+  #weekly-content .btn.btn-primary{padding:7px 12px!important;font-size:13px!important}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div class="sb-logo">
+      <h2 id="sb-title">다예 학교 생활</h2>
+      <p id="sb-date"></p>
+    </div>
+    <div class="sb-mode-toggle">
+      <button class="mode-btn active" onclick="switchMode('school')">학교</button>
+      <button class="mode-btn" onclick="switchMode('work')">일상</button>
+    </div>
+    <nav class="sb-nav" id="sb-nav"></nav>
+  </nav>
+
+  <!-- Mobile overlay -->
+  <div id="mobile-overlay" onclick="closeSidebar()"></div>
+
+  <!-- Main -->
+  <div id="main">
+    <div id="topbar">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0">
+        <button id="mobile-menu-btn" onclick="openSidebar()">☰</button>
+        <span id="page-title"></span>
+      </div>
+      <div id="topbar-mode-toggle" style="display:none;gap:6px;flex-shrink:0"></div>
+    </div>
+    <div id="content">
+      <!-- Dashboard -->
+      <div class="page" id="page-dashboard">
+        <div class="page-header"><h2 id="dash-title"></h2></div>
+        <div class="stat-grid" id="dash-stats" style="grid-template-columns:repeat(3,1fr)"></div>
+        <div id="dash-cards"></div>
+      </div>
+
+      <!-- Calendar -->
+      <div class="page" id="page-calendar">
+        <div class="page-header">
+          <h2>이번 달 일정</h2>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="openTagManager()">🏷 태그 관리</button>
+            <button class="btn btn-primary btn-sm" onclick="openEventModal()">+ 일정 추가</button>
+          </div>
+        </div>
+        <div class="cal-nav">
+          <button onclick="moveCalMonth(-1)">‹</button>
+          <span id="cal-month-label"></span>
+          <button onclick="moveCalMonth(1)">›</button>
+        </div>
+        <div class="cal-grid" id="cal-grid">
+          <div class="cal-dow">월</div><div class="cal-dow">화</div><div class="cal-dow">수</div>
+          <div class="cal-dow">목</div><div class="cal-dow">금</div><div class="cal-dow">토</div><div class="cal-dow">일</div>
+        </div>
+        <div id="cal-tag-legend" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px"></div>
+      </div>
+
+      <!-- Weekly -->
+      <div class="page" id="page-weekly">
+        <div class="page-header">
+          <h2>이번 주 할 일</h2>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button onclick="moveWeek(-1)" style="background:none;border:1.5px solid var(--border);border-radius:8px;padding:4px 10px;cursor:pointer;font-size:14px">◄</button>
+            <span id="week-badge" style="font-size:12px;font-weight:600;background:var(--accent-light);color:var(--accent);padding:5px 12px;border-radius:20px;cursor:pointer;white-space:nowrap"></span>
+            <button onclick="moveWeek(1)" style="background:none;border:1.5px solid var(--border);border-radius:8px;padding:4px 10px;cursor:pointer;font-size:14px">►</button>
+          </div>
+        </div>
+        <div id="weekly-content"></div>
+      </div>
+
+      <!-- Today -->
+      <div class="page" id="page-today">
+        <div class="page-header">
+          <h2>오늘 할 일</h2>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button onclick="moveDay(-1)" style="background:none;border:1.5px solid var(--border);border-radius:8px;padding:4px 10px;cursor:pointer;font-size:14px">◄</button>
+            <span id="today-badge" style="font-size:12px;font-weight:600;background:var(--accent-light);color:var(--accent);padding:5px 12px;border-radius:20px;cursor:pointer;white-space:nowrap"></span>
+            <button onclick="moveDay(1)" style="background:none;border:1.5px solid var(--border);border-radius:8px;padding:4px 10px;cursor:pointer;font-size:14px">►</button>
+          </div>
+        </div>
+        <!-- 오전 섹션 -->
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:12px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px;color:var(--accent)">🌅 오전</div>
+          <div class="todo-list" id="today-am-list"></div>
+          <div id="today-am-input-row" style="display:flex;gap:6px;margin-top:8px;align-items:center">
+            <div id="today-am-prio" style="display:flex;gap:5px;flex-shrink:0">
+              <button type="button" class="prio-dot" data-target="am" data-val="high" style="background:#ef4444" onclick="pickPrio(this)" title="높음"></button>
+              <button type="button" class="prio-dot active" data-target="am" data-val="normal" style="background:#f59e0b" onclick="pickPrio(this)" title="중간"></button>
+              <button type="button" class="prio-dot" data-target="am" data-val="low" style="background:#22c55e" onclick="pickPrio(this)" title="낮음"></button>
+            </div>
+            <input type="text" id="today-am-input" placeholder="할 일 입력 후 Enter..."
+              style="flex:1;min-width:0;padding:8px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--bg)"
+              onkeydown="if(event.key==='Enter') quickAddToday('am')">
+            <button class="btn btn-ghost btn-xs" style="border-radius:8px;padding:7px 12px" onclick="quickAddToday('am')">+</button>
+          </div>
+        </div>
+        <!-- 오후 섹션 -->
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px;color:var(--accent)">🌇 오후</div>
+          <div class="todo-list" id="today-pm-list"></div>
+          <div id="today-pm-input-row" style="display:flex;gap:6px;margin-top:8px;align-items:center">
+            <div id="today-pm-prio" style="display:flex;gap:5px;flex-shrink:0">
+              <button type="button" class="prio-dot" data-target="pm" data-val="high" style="background:#ef4444" onclick="pickPrio(this)" title="높음"></button>
+              <button type="button" class="prio-dot active" data-target="pm" data-val="normal" style="background:#f59e0b" onclick="pickPrio(this)" title="중간"></button>
+              <button type="button" class="prio-dot" data-target="pm" data-val="low" style="background:#22c55e" onclick="pickPrio(this)" title="낮음"></button>
+            </div>
+            <input type="text" id="today-pm-input" placeholder="할 일 입력 후 Enter..."
+              style="flex:1;min-width:0;padding:8px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--bg)"
+              onkeydown="if(event.key==='Enter') quickAddToday('pm')">
+            <button class="btn btn-ghost btn-xs" style="border-radius:8px;padding:7px 12px" onclick="quickAddToday('pm')">+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Habit Tracker -->
+      <div class="page" id="page-habit">
+        <div style="margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <button onclick="htMoveMonth(-1)" style="background:none;border:1.5px solid var(--border);border-radius:8px;padding:4px 10px;cursor:pointer;font-size:14px">‹</button>
+            <span id="ht-period-label" style="font-size:15px;font-weight:700;min-width:90px;text-align:center"></span>
+            <button onclick="htMoveMonth(1)" style="background:none;border:1.5px solid var(--border);border-radius:8px;padding:4px 10px;cursor:pointer;font-size:14px">›</button>
+          </div>
+          <div style="display:flex;border-bottom:2px solid var(--border)">
+            <button id="ht-btn-cal" class="ht-tab-btn active" onclick="htSwitchMainTab('calendar')">월 종합</button>
+            <button id="ht-btn-detail" class="ht-tab-btn" onclick="htSwitchMainTab('detail')">항목별</button>
+          </div>
+          <div id="ht-subnav" style="display:flex;gap:8px;padding:10px 0"></div>
+        </div>
+        <!-- Calendar view -->
+        <div id="ht-calendar-view">
+          <div id="ht-cal-chore-view">
+            <div class="ht-cal-dow-row">
+              <div class="ht-cal-dow">월</div><div class="ht-cal-dow">화</div><div class="ht-cal-dow">수</div>
+              <div class="ht-cal-dow">목</div><div class="ht-cal-dow">금</div><div class="ht-cal-dow">토</div><div class="ht-cal-dow">일</div>
+            </div>
+            <div class="ht-cal-grid" id="ht-chore-cal-grid"></div>
+          </div>
+          <div id="ht-cal-habit-view" style="display:none">
+            <div class="ht-cal-dow-row">
+              <div class="ht-cal-dow">월</div><div class="ht-cal-dow">화</div><div class="ht-cal-dow">수</div>
+              <div class="ht-cal-dow">목</div><div class="ht-cal-dow">금</div><div class="ht-cal-dow">토</div><div class="ht-cal-dow">일</div>
+            </div>
+            <div class="ht-cal-grid" id="ht-habit-cal-grid"></div>
+          </div>
+        </div>
+        <!-- Detail view -->
+        <div id="ht-detail-view" style="display:none">
+          <div id="ht-detail-chore-view"></div>
+          <div id="ht-detail-habit-view" style="display:none"></div>
+          <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+            <button id="ht-add-item-btn" onclick="htOpenAddItem()" class="btn btn-primary btn-sm">+ 항목 추가</button>
+            <button onclick="htOpenReorder()" class="btn btn-ghost btn-sm">순서 변경</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="page" id="page-notes">
+        <div class="page-header">
+          <h2 id="notes-title">강의노트</h2>
+          <button class="btn btn-primary btn-sm" onclick="openNoteModal()">+ 새 노트</button>
+        </div>
+        <!-- 학기 필터 -->
+        <div id="note-sem-pills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+        <!-- 과목 필터 -->
+        <div id="note-subject-pills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+        <!-- 월별 필터 -->
+        <div id="note-month-pills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"></div>
+        <!-- 노트 목록 -->
+        <div id="note-list"></div>
+      </div>
+
+      <!-- Curriculum -->
+      <div class="page" id="page-curriculum">
+        <div class="page-header">
+          <h2>커리큘럼 계획</h2>
+          <button class="btn btn-primary btn-sm" onclick="openCurrModal()">+ 과목 추가</button>
+        </div>
+        <div id="curr-year-tabs" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap"></div>
+        <div id="curr-sem-tabs" style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap"></div>
+        <div id="curr-summary" style="margin-bottom:12px"></div>
+        <div id="curr-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom nav (mobile) -->
+  <nav id="bottom-nav" id="bottom-nav-el"></nav>
+</div>
+
+<!-- ========== MODALS ========== -->
+
+<!-- Event modal -->
+<div class="modal-overlay" id="modal-event">
+  <div class="modal">
+    <h3 id="event-modal-title">일정 추가</h3>
+    <div class="form-group"><label>내용</label><input type="text" id="ev-content" placeholder="일정 내용"></div>
+    <div class="form-group"><label>태그</label><select id="ev-tag"></select></div>
+    <div class="form-group"><label>시작일</label><input type="date" id="ev-date"></div>
+    <div class="form-group"><label>종료일 (선택)</label><input type="date" id="ev-date-end"></div>
+    <div class="form-group"><label>시간 (선택)</label><input type="time" id="ev-time"></div>
+    <div class="form-group">
+      <label>반복</label>
+      <select id="ev-repeat">
+        <option value="none">반복 없음</option>
+        <option value="weekly">매주</option>
+        <option value="monthly">매월</option>
+      </select>
+    </div>
+    <div class="form-group"><label>메모 (선택)</label><textarea id="ev-memo" placeholder="메모를 입력하세요..." style="min-height:80px"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-event')">취소</button>
+      <button class="btn btn-danger btn-sm" id="ev-delete-btn" onclick="deleteEvent()" style="display:none">삭제</button>
+      <button class="btn btn-primary btn-sm" onclick="saveEvent()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- Event detail modal -->
+<div class="modal-overlay" id="modal-event-detail">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="margin:0">일정 상세</h3>
+      <button onclick="closeModal('modal-event-detail')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
+    </div>
+    <div id="event-detail-content"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-event-detail')">닫기</button>
+      <button class="btn btn-primary btn-sm" onclick="editCurrentEvent()">수정</button>
+    </div>
+  </div>
+</div>
+
+<!-- 반복 일정: 이 일정만 / 전체(이후) 적용 선택 -->
+<div class="modal-overlay" id="modal-repeat-choice">
+  <div class="modal" style="max-width:340px">
+    <h3 id="rc-title" style="margin-bottom:6px">반복 일정</h3>
+    <p id="rc-desc" style="font-size:13px;color:var(--sub);margin-bottom:16px">이 일정은 반복 일정이에요. 어떻게 적용할까요?</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-ghost" style="width:100%" onclick="rcChoose('this')" id="rc-btn-this">이 일정만</button>
+      <button class="btn btn-ghost" style="width:100%" onclick="rcChoose('all')" id="rc-btn-all">이후 모든 일정</button>
+    </div>
+    <div class="modal-footer" style="margin-top:14px">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-repeat-choice')">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- Todo modal -->
+<div class="modal-overlay" id="modal-todo">
+  <div class="modal">
+    <h3 id="todo-modal-title">할 일 추가</h3>
+    <div class="form-group"><label>내용</label><input type="text" id="todo-content" placeholder="할 일 내용"></div>
+    <div class="form-group" id="todo-date-group"><label>날짜</label><input type="date" id="todo-date"></div>
+    <div class="form-group"><label>중요도</label>
+      <select id="todo-priority">
+        <option value="normal">보통</option>
+        <option value="high">높음</option>
+        <option value="low">낮음</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-todo')">취소</button>
+      <button class="btn btn-primary btn-sm" onclick="saveTodo()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tag manager modal -->
+<div class="modal-overlay" id="modal-tags">
+  <div class="modal">
+    <h3>태그 관리</h3>
+    <div id="tag-list-container" style="margin-bottom:14px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input type="text" id="new-tag-name" placeholder="태그 이름" style="flex:1;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px">
+      <input type="color" id="new-tag-color" value="#6366f1" style="width:42px;height:36px;border:none;border-radius:8px;cursor:pointer">
+      <button class="btn btn-primary btn-sm" onclick="addTag()">추가</button>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost btn-sm" onclick="closeModal('modal-tags')">닫기</button></div>
+  </div>
+</div>
+
+<!-- Note group modal -->
+<div class="modal-overlay" id="modal-note-group">
+  <div class="modal">
+    <h3>그룹 관리</h3>
+    <div id="note-group-list" style="margin-bottom:14px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input type="text" id="new-group-name" placeholder="그룹 이름" style="flex:1;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px">
+      <button class="btn btn-primary btn-sm" onclick="addNoteGroup()">추가</button>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost btn-sm" onclick="closeModal('modal-note-group')">닫기</button></div>
+  </div>
+</div>
+
+<!-- Curriculum modal -->
+<div class="modal-overlay" id="modal-curr">
+  <div class="modal">
+    <h3 id="curr-modal-h">과목 추가</h3>
+    <input type="hidden" id="curr-id">
+    <div class="form-group"><label>과목명</label><input type="text" id="curr-name" placeholder="과목명"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div class="form-group" style="margin-bottom:0">
+        <label>학년</label>
+        <select id="curr-year" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px">
+          <option value="1">1학년</option><option value="2">2학년</option>
+          <option value="3">3학년(추가학기)</option><option value="4">4학년(추가학기)</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>학기</label>
+        <select id="curr-sem" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px">
+          <option value="1">1학기</option><option value="2">2학기</option>
+          <option value="S">여름계절</option><option value="W">겨울계절</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div class="form-group" style="margin-bottom:0">
+        <label>학점</label>
+        <select id="curr-credit" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px">
+          <option value="1">1학점</option><option value="1.5">1.5학점</option>
+          <option value="2">2학점</option><option value="3" selected>3학점</option><option value="4">4학점</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>구분</label>
+        <select id="curr-type" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px">
+          <option value="전공필수">전공필수</option>
+          <option value="전공선택">전공선택</option>
+          <option value="교양필수">교양필수</option>
+          <option value="교양선택">교양선택</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label>메모</label><input type="text" id="curr-memo" placeholder="교수명, 시간표 등"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" id="curr-del-btn" style="display:none;color:var(--danger)" onclick="deleteCurr()">삭제</button>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-curr')">취소</button>
+      <button class="btn btn-primary btn-sm" onclick="saveCurr()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- Note modal -->
+<div class="modal-overlay" id="modal-note">
+  <div class="modal" style="max-width:600px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 id="note-modal-title" style="margin:0">노트 작성</h3>
+      <button onclick="closeModal('modal-note')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
+    </div>
+    <input type="hidden" id="nt-id">
+    <div class="form-group"><label>제목</label><input type="text" id="nt-title" placeholder="노트 제목"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="form-group" style="margin-bottom:0">
+        <label>학기</label>
+        <select id="nt-sem-sel" onchange="ntOnSemChange()" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px"></select>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>과목</label>
+        <select id="nt-subject-sel" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px"></select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>날짜</label><input type="date" id="nt-date">
+    </div>
+    <!-- 서식 툴바 -->
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;padding:6px;background:var(--bg);border-radius:8px">
+      <button class="btn btn-ghost btn-xs" onclick="noteCmd('bold')"><b>B</b></button>
+      <button class="btn btn-ghost btn-xs" onclick="noteCmd('italic')"><i>I</i></button>
+      <button class="btn btn-ghost btn-xs" onclick="noteCmd('underline')"><u>U</u></button>
+      <button class="btn btn-ghost btn-xs" onclick="noteCmd('insertUnorderedList')">• 목록</button>
+      <button class="btn btn-ghost btn-xs" onclick="noteCmd('insertOrderedList')">1. 목록</button>
+    </div>
+    <div id="nt-content" class="rich-content" contenteditable="true" onkeydown="ntEditorKeydown(event)" style="min-height:180px;border:1.5px solid var(--border);border-radius:10px;padding:12px;font-size:14px;line-height:1.7;outline:none;background:var(--bg)"></div>
+    <div class="modal-footer" style="margin-top:14px">
+      <button id="nt-del-btn" class="btn btn-ghost btn-sm" style="display:none;color:var(--danger)" onclick="deleteNote()">삭제</button>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-note')">취소</button>
+      <button class="btn btn-primary btn-sm" onclick="saveNote()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-overlay" id="modal-settings">
+  <div class="modal">
+    <h3>설정</h3>
+    <div class="form-group"><label>학교 탭 이름</label><input type="text" id="set-school-label" value="학교"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <button class="btn btn-ghost btn-sm" onclick="openTagManager()">태그 관리</button>
+      <button class="btn btn-ghost btn-sm" onclick="openNoteGroupManager()">그룹 관리</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-settings')">닫기</button>
+      <button class="btn btn-primary btn-sm" onclick="saveSettings()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== HABIT TRACKER MODALS / BOTTOM SHEETS ========== -->
+
+<!-- Add item modal -->
+<div class="modal-overlay" id="ht-add-overlay">
+  <div class="modal">
+    <h3 id="ht-add-title">항목 추가</h3>
+    <div class="form-group"><label>이름</label><input type="text" id="ht-add-name" placeholder="항목 이름"></div>
+    <div class="form-group"><label>색상</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="ht-color-picker"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('ht-add-overlay')">취소</button>
+      <button class="btn btn-primary btn-sm" onclick="htConfirmAddItem()">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add year modal -->
+<div class="modal-overlay" id="ht-year-overlay">
+  <div class="modal">
+    <h3>연도 추가</h3>
+    <div class="form-group"><label>연도</label><input type="number" id="ht-new-year" placeholder="2024" min="2020" max="2040"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('ht-year-overlay')">취소</button>
+      <button class="btn btn-primary btn-sm" onclick="htConfirmAddYear()">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reorder modal -->
+<div class="modal-overlay" id="ht-reorder-overlay">
+  <div class="modal">
+    <h3 id="ht-reorder-title">순서 변경</h3>
+    <div id="ht-reorder-list" style="margin-bottom:14px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('ht-reorder-overlay')">취소</button>
+      <button class="btn btn-primary btn-sm" onclick="htConfirmReorder()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- Chore day sheet -->
+<div class="bs-overlay" id="ht-day-bs-overlay" onclick="htCloseDaySheet()"></div>
+<div class="bottom-sheet" id="ht-day-overlay">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h3 id="ht-day-title" style="margin:0;font-size:16px"></h3>
+    <button onclick="htCloseDaySheet()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
+  </div>
+  <div id="ht-day-items"></div>
+</div>
+
+<!-- Habit day sheet -->
+<div class="bs-overlay" id="ht-habit-day-bs-overlay" onclick="htCloseHabitDaySheet()"></div>
+<div class="bottom-sheet" id="ht-habit-day-overlay">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h3 id="ht-habit-day-title" style="margin:0;font-size:16px"></h3>
+    <button onclick="htCloseHabitDaySheet()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
+  </div>
+  <div id="ht-habit-day-items"></div>
+</div>
+
+<script>
+// ============================================================
+// SUPABASE
+// ============================================================
+const SB = supabase.createClient(
+  'https://voydlicmbaulvqaxhsio.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZveWRsaWNtYmF1bHZxYXhoc2lvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2NzM3MzAsImV4cCI6MjEwNDI0OTczMH0.N0_PTcM46JGIkDG2iXtpC_zm4b0lRsR4j2TOEcPazPA'
+);
+
+// ============================================================
+// MODES CONFIG
+// ============================================================
+const MODES = {
+  school: {
+    label: '학교', title: '다예 학교 생활',
+    accent: '#1e3a5f', accentLight: '#eff6ff',
+    navItems: [
+      {id:'dashboard', icon:'🏠', label:'대시보드'},
+      {id:'calendar', icon:'📅', label:'이번 달 일정'},
+      {id:'weekly', icon:'✅', label:'이번 주 할 일'},
+      {id:'today', icon:'☀️', label:'오늘 할 일'},
+      {id:'notes', icon:'📒', label:'강의노트'},
+      {id:'curriculum', icon:'📋', label:'커리큘럼'},
+    ],
+    eventTags: ['수업','과제','시험','개인','기타'],
+    noteGroups: ['전공','교양','세미나','기타'],
+    noteLabel: '강의노트', noteGroupAll: '전체',
+    dashCards: ['week-events','today-todos','week-todos'],
+  },
+  work: {
+    label: '일상', title: '다예 일상 생활',
+    accent: '#0ea5e9', accentLight: '#e0f2fe',
+    navItems: [
+      {id:'dashboard', icon:'🏠', label:'대시보드'},
+      {id:'calendar', icon:'📅', label:'이번 달 일정'},
+      {id:'weekly', icon:'✅', label:'이번 주 할 일'},
+      {id:'today', icon:'☀️', label:'오늘 할 일'},
+      {id:'habit', icon:'🌿', label:'해빗트래커'},
+    ],
+    eventTags: ['개인','약속','기타'],
+    noteGroups: [], noteLabel: '', noteGroupAll: '전체',
+    dashCards: ['week-events','today-todos','week-todos'],
+  },
+};
+
+// ============================================================
+// STATE
+// ============================================================
+let currentMode = localStorage.getItem('current_mode') || 'school';
+let currentPage = localStorage.getItem('current_page') || 'dashboard';
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth() + 1;
+let editingEventId = null;
+let editingEventOccDate = null; // 수정/삭제 중인 반복 일정의 실제 발생일(occurrence date)
+let _editRepeatMode = null;     // 'this' | 'all' | null(반복 아님)
+let _rcCallback = null;
+function openRepeatChoice(title, desc, labelThis, labelAll, callback) {
+  document.getElementById('rc-title').textContent = title;
+  document.getElementById('rc-desc').textContent = desc;
+  document.getElementById('rc-btn-this').textContent = labelThis;
+  document.getElementById('rc-btn-all').textContent = labelAll;
+  _rcCallback = callback;
+  openModal('modal-repeat-choice');
+}
+function rcChoose(kind) {
+  closeModal('modal-repeat-choice');
+  const cb = _rcCallback; _rcCallback = null;
+  if(cb) cb(kind);
+}
+let editingTodoId = null;
+let editingCurriculumId = null;
+let todoType = 'today';
+let currentNoteGroup = '전체';
+let editingNoteId = null;
+let _viewingEventId = null, _viewingOccDate = null;
+
+const DB = {
+  events: [], todos: [], weeklyTodos: [], notes: [],
+  curricula: [], eventTags: [], noteGroups: [], settings: {}
+};
+
+// ============================================================
+// UTILS
+// ============================================================
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+function today() { const d=new Date(); return fmtDate(d); }
+function fmtDate(d) {
+  if(!d) return '';
+  if(typeof d === 'string') return d.slice(0,10);
+  // toISOString()은 UTC 기준으로 변환하기 때문에 한국(UTC+9)에서는 자정 근처나 날짜 연산 시
+  // 하루가 밀리는 버그가 있었음 -> 로컬(브라우저) 날짜 그대로 사용하도록 수정
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function getWeekRange() {
+  const now = new Date();
+  now.setDate(now.getDate() + weekOffset * 7);
+  const day = now.getDay();
+  const mon = new Date(now); mon.setDate(now.getDate()-(day===0?6:day-1));
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+  return { start: fmtDate(mon), end: fmtDate(sun) };
+}
+function dateInRange(d, s, e) { return d >= s && d <= e; }
+function getDaysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
+function getFirstDow(y, m) { const d = new Date(y, m-1, 1).getDay(); return (d+6)%7; /* 0=월 ... 6=일 (월요일 시작) */ }
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('sb-date').textContent = new Date().toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'});
+  if(!MODES[currentMode]) currentMode = 'school';
+  applyModeUI();
+  renderNav();
+  renderBottomNav();
+  await loadAll();
+  navigateTo(currentPage);
+});
+
+async function loadAll() {
+  const mode = currentMode;
+  try {
+    const [evRes, tdRes, wkRes, ntRes, crRes, tgRes, ngRes, stRes] = await Promise.all([
+      SB.from('dash_events').select('id,content,tag,date,date_end,time,repeat,exceptions,memo').eq('mode', mode),
+      SB.from('dash_todos').select('*').eq('mode', mode).eq('type','today'),
+      SB.from('dash_todos').select('*').eq('mode', mode).eq('type','weekly'),
+      SB.from('dash_notes').select('*').eq('mode', mode),
+      SB.from('dash_curriculum').select('*').eq('mode', mode),
+      SB.from('dash_event_tags').select('*').eq('mode', mode),
+      SB.from('dash_note_groups').select('*').eq('mode', mode),
+      SB.from('dash_settings').select('*').eq('mode', mode),
+    ]);
+    DB.events = evRes.data || [];
+    DB.todos = tdRes.data || [];
+    DB.weeklyTodos = wkRes.data || [];
+    DB.notes = ntRes.data || [];
+    DB.curricula = crRes.data || [];
+    DB.eventTags = tgRes.data || [];
+    DB.noteGroups = ngRes.data || [];
+    if(stRes.data) stRes.data.forEach(r => { DB.settings[r.key] = r.value; });
+    if(!DB.eventTags.length) await initDefaultTags();
+  } catch(e) {
+    console.error('loadAll error', e);
+  }
+}
+
+async function initDefaultTags() {
+  const mode = currentMode;
+  const defaultTags = MODES[mode].eventTags;
+  const colors = ['#6366f1','#f59e0b','#ef4444','#22c55e','#64748b'];
+  const rows = defaultTags.map((name,i) => ({id:uid(), mode, name, color: colors[i]||'#6366f1'}));
+  const {data} = await SB.from('dash_event_tags').insert(rows).select();
+  DB.eventTags = data || [];
+}
+
+// ============================================================
+// MODE & NAV
+// ============================================================
+function applyModeUI() {
+  const m = MODES[currentMode];
+  document.title = m.title;
+  document.getElementById('sb-title').textContent = m.title;
+  document.getElementById('page-title').textContent = m.title;
+  document.body.className = currentMode === 'work' ? 'work-mode' : '';
+  // mode buttons
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    const isSchool = b.textContent === '학교';
+    const isWork = b.textContent === '일상';
+    b.classList.toggle('active', (isSchool && currentMode==='school') || (isWork && currentMode==='work'));
+  });
+  renderTopbarModeToggle();
+}
+
+function renderTopbarModeToggle() {
+  const el = document.getElementById('topbar-mode-toggle');
+  if(!el) return;
+  const active = 'background:var(--accent);color:#fff';
+  const inactive = 'background:var(--bg);color:var(--sub)';
+  el.innerHTML = `
+    <button onclick="switchMode('school')" style="padding:5px 12px;border:none;border-radius:8px;font-size:12px;font-weight:700;${currentMode==='school'?active:inactive}">학교</button>
+    <button onclick="switchMode('work')" style="padding:5px 12px;border:none;border-radius:8px;font-size:12px;font-weight:700;${currentMode==='work'?active:inactive}">일상</button>
+  `;
+}
+
+function renderNav() {
+  const m = MODES[currentMode];
+  const nav = document.getElementById('sb-nav');
+  nav.innerHTML = m.navItems.map(item => `
+    <button class="nav-item${currentPage===item.id?' active':''}" onclick="navigateTo('${item.id}')">
+      <span class="nav-icon">${item.icon}</span>${item.label}
+    </button>
+  `).join('');
+}
+
+function renderBottomNav() {
+  const m = MODES[currentMode];
+  const bn = document.getElementById('bottom-nav');
+  if(!bn) return;
+  bn.innerHTML = m.navItems.map(item => `
+    <button class="bn-item${currentPage===item.id?' active':''}" onclick="navigateTo('${item.id}')">
+      <span class="bn-icon">${item.icon}</span>${item.label}
+    </button>
+  `).join('');
+}
+
+async function switchMode(mode) {
+  if(currentMode === mode) return;
+  currentMode = mode;
+  localStorage.setItem('current_mode', mode);
+  currentPage = 'dashboard';
+  localStorage.setItem('current_page', 'dashboard');
+  htInitialized = false;
+  applyModeUI();
+  renderNav();
+  renderBottomNav();
+  await loadAll();
+  navigateTo('dashboard');
+}
+
+function navigateTo(pg) {
+  const m = MODES[currentMode];
+  if(!m.navItems.find(x => x.id===pg)) pg = 'dashboard';
+  currentPage = pg;
+  localStorage.setItem('current_page', pg);
+  // 탭 전환 시 이전 페이지에서 남아있던 가로 스크롤 위치가 새 페이지에 그대로 남아
+  // 화면이 옆으로 밀린 것처럼 보이는 문제를 막기 위해 항상 원점으로 리셋
+  window.scrollTo(0,0);
+  document.documentElement.scrollLeft = 0;
+  document.body.scrollLeft = 0;
+  const contentEl = document.getElementById('content');
+  if(contentEl) contentEl.scrollLeft = 0;
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  const pageEl = document.getElementById('page-'+pg);
+  if(pageEl) pageEl.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(b => {
+    b.classList.toggle('active', b.textContent.trim() === m.navItems.find(x=>x.id===pg)?.label);
+  });
+  document.querySelectorAll('.bn-item').forEach(b => {
+    const item = m.navItems.find(x=>x.id===pg);
+    b.classList.toggle('active', item && b.querySelector('.bn-icon')?.textContent === item.icon);
+  });
+  // 상단 제목은 탭 이름이 아니라 사이트(모드) 이름으로 고정 (다예 학교 생활 / 다예 일상 생활)
+  document.getElementById('page-title').textContent = m.title;
+  closeSidebar();
+  renderPage(pg);
+}
+
+function topbarAdd() {
+  if(currentPage==='calendar') openEventModal();
+  else if(currentPage==='weekly') openTodoModal('weekly');
+  else if(currentPage==='today') openTodoModal('today');
+}
+
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('mobile-overlay').classList.add('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('mobile-overlay').classList.remove('open');
+}
+
+// ============================================================
+// RENDER PAGE
+// ============================================================
+function renderPage(pg) {
+  if(pg==='dashboard') renderDashboard();
+  else if(pg==='calendar') renderCalendar();
+  else if(pg==='weekly') renderWeekly();
+  else if(pg==='today') renderToday();
+  else if(pg==='notes') renderNotes();
+  else if(pg==='curriculum') renderCurriculum();
+  else if(pg==='habit') htInit();
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDashboard() {
+  const dtEl = document.getElementById('dash-title');
+  if(dtEl) dtEl.textContent = MODES[currentMode].label + ' 대시보드';
+  const wr = getWeekRange();
+  const td = today();
+  const todayTodos = DB.todos.filter(t => !t.done && t.date===td);
+  const weekTodos = DB.weeklyTodos.filter(t => !t.done);
+  const weekEvents = [];
+  DB.events.forEach(e => {
+    getEventDates(e).forEach(d => { if(dateInRange(d, wr.start, wr.end)) weekEvents.push({...e, occDate:d}); });
+  });
+  const stats = `
+    <div class="stat-card"><div class="s-label">오늘 할 일</div><div class="s-val">${todayTodos.length}</div><div class="s-sub">미완료</div></div>
+    <div class="stat-card"><div class="s-label">이번 주 할 일</div><div class="s-val">${weekTodos.length}</div><div class="s-sub">미완료</div></div>
+    <div class="stat-card"><div class="s-label">이번 주 일정</div><div class="s-val">${weekEvents.length}</div><div class="s-sub">건</div></div>
+  `;
+  const el = document.getElementById('dash-stats');
+  el.innerHTML = stats;
+  el.style.gridTemplateColumns = 'repeat(3,1fr)';
+
+  let cards = '';
+  cards += `<div class="dash-section"><h3>📅 이번 주 일정</h3><div>`;
+  if(!weekEvents.length) cards += `<div style="color:var(--sub);font-size:13px">이번 주 일정이 없습니다</div>`;
+  else weekEvents.slice(0,5).forEach(e => {
+    const tg = DB.eventTags.find(x=>x.name===e.tag);
+    const col = tg?tg.color:'#6366f1';
+    cards += `<div class="dash-event-item" style="cursor:pointer" onclick="showEventDetail('${e.id}','${e.occDate}')">
+      <span class="tag-badge" style="background:${col};color:#fff">${e.tag}</span>
+      <span style="margin-left:6px;font-size:13px">${e.content}</span>
+      <span style="float:right;font-size:12px;color:var(--sub)">${e.occDate}</span>
+    </div>`;
+  });
+  cards += `</div></div>`;
+
+  cards += `<div class="dash-section"><h3>☀️ 오늘 할 일</h3><div>`;
+  if(!todayTodos.length) cards += `<div style="color:var(--sub);font-size:13px">오늘 할 일이 없습니다</div>`;
+  else todayTodos.slice(0,5).forEach(t => {
+    cards += `<div class="dash-event-item">${t.content}</div>`;
+  });
+  cards += `</div></div>`;
+
+  cards += `<div class="dash-section"><h3>✅ 이번 주 할 일</h3><div>`;
+  if(!weekTodos.length) cards += `<div style="color:var(--sub);font-size:13px">이번 주 할 일이 없습니다</div>`;
+  else weekTodos.slice(0,5).forEach(t => {
+    cards += `<div class="dash-event-item">${t.content}</div>`;
+  });
+  cards += `</div></div>`;
+
+  document.getElementById('dash-cards').innerHTML = cards;
+}
+
+// ============================================================
+// CALENDAR
+// ============================================================
+function getEventDates(e, rangeEndOverrideStr) {
+  const dates = [];
+  const base = e.date;
+  if(!base) return dates;
+  if(!e.repeat || e.repeat==='none') {
+    if(e.date_end) {
+      let cur = new Date(base);
+      const end = new Date(e.date_end);
+      while(cur<=end) { dates.push(fmtDate(cur)); cur.setDate(cur.getDate()+1); }
+    } else { dates.push(base); }
+    return dates;
+  }
+  const exceptions = e.exceptions || [];
+  const start = new Date(base);
+  // 기본은 이번 달 말일까지만 확장하되, rangeEndOverrideStr가 있으면 그 날짜까지 더 확장(달력의 다음 달 여백 표시용)
+  const calEnd = rangeEndOverrideStr ? new Date(rangeEndOverrideStr+'T00:00:00') : new Date(calYear, calMonth, 0);
+  const seriesEnd = e.date_end ? new Date(e.date_end+'T00:00:00') : null; // 반복 일정에서는 date_end를 '이 날짜까지만 반복' 용도로 사용
+  let cur = new Date(start);
+  while(cur <= calEnd) {
+    if(seriesEnd && cur > seriesEnd) break;
+    const ds = fmtDate(cur);
+    if(!exceptions.includes(ds)) dates.push(ds);
+    if(e.repeat==='weekly') cur.setDate(cur.getDate()+7);
+    else if(e.repeat==='monthly') cur.setMonth(cur.getMonth()+1);
+    else break;
+    if(cur.getFullYear() > calYear+1) break;
+  }
+  return dates;
+}
+
+// 대한민국 공휴일 자동 계산 (양력 고정 공휴일 + lunar-javascript 라이브러리로 계산한 음력 공휴일)
+// 대체공휴일은 해마다 정부가 그때그때 확정하므로 자동 계산 대상에서 제외 - 확정되면 '일정 추가'로 직접 넣어주세요.
+const _holidayCache = {};
+function getKoreanHolidays(year) {
+  if(_holidayCache[year]) return _holidayCache[year];
+  const list = [];
+  const add = (m,d,name) => list.push({date:`${year}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`, name});
+  // 양력 고정 공휴일
+  add(1,1,'신정');
+  add(3,1,'삼일절');
+  add(5,5,'어린이날');
+  add(6,6,'현충일');
+  add(8,15,'광복절');
+  add(10,3,'개천절');
+  add(10,9,'한글날');
+  add(12,25,'성탄절');
+  // 음력 공휴일 (설날/추석 연휴 3일, 부처님오신날)
+  try {
+    const toYmd = (ly,lm,ld) => {
+      const s = Lunar.fromYmd(ly, lm, ld).getSolar();
+      return `${s.getYear()}-${String(s.getMonth()).padStart(2,'0')}-${String(s.getDay()).padStart(2,'0')}`;
+    };
+    const shiftDay = (ds,n) => { const d=new Date(ds+'T00:00:00'); d.setDate(d.getDate()+n); return fmtDate(d); };
+    const seollal = toYmd(year,1,1);
+    list.push({date:shiftDay(seollal,-1), name:'설날 연휴'});
+    list.push({date:seollal, name:'설날'});
+    list.push({date:shiftDay(seollal,1), name:'설날 연휴'});
+    const chuseok = toYmd(year,8,15);
+    list.push({date:shiftDay(chuseok,-1), name:'추석 연휴'});
+    list.push({date:chuseok, name:'추석'});
+    list.push({date:shiftDay(chuseok,1), name:'추석 연휴'});
+    list.push({date:toYmd(year,4,8), name:'부처님오신날'});
+  } catch(err) {
+    console.error('음력 공휴일 계산 실패 (lunar-javascript 로드 확인 필요):', err);
+  }
+  _holidayCache[year] = list;
+  return list;
+}
+
+function renderCalendar() {
+  const label = document.getElementById('cal-month-label');
+  label.textContent = `${calYear}년 ${calMonth}월`;
+  const days = getDaysInMonth(calYear, calMonth);
+  const firstDow = getFirstDow(calYear, calMonth);
+  const td = today();
+
+  // 그리드 시작/끝 날짜 계산 (이전달 꼬리 ~ 이번달 ~ 다음달 머리)
+  const gridStart = new Date(calYear, calMonth-1, 1);
+  gridStart.setDate(gridStart.getDate() - firstDow);
+  const total0 = firstDow + days;
+  const rem0 = total0 % 7 === 0 ? 0 : 7 - (total0 % 7);
+  const gridEnd = new Date(calYear, calMonth-1, days);
+  gridEnd.setDate(gridEnd.getDate() + rem0);
+  const gridStartStr = fmtDate(gridStart);
+  const gridEndStr = fmtDate(gridEnd);
+
+  // Build day->events map (sorted by time) - 이전/다음 달 여백 포함 전체 그리드 범위
+  const dayMap = {};
+  DB.events.forEach(e => {
+    getEventDates(e, gridEndStr).forEach(d => {
+      if(d >= gridStartStr && d <= gridEndStr) {
+        if(!dayMap[d]) dayMap[d]=[];
+        dayMap[d].push({...e, occDate:d});
+      }
+    });
+  });
+  // Sort each day's events by time (null/empty goes last)
+  Object.keys(dayMap).forEach(d => {
+    dayMap[d].sort((a,b) => {
+      if(!a.time && !b.time) return 0;
+      if(!a.time) return 1;
+      if(!b.time) return -1;
+      return a.time.localeCompare(b.time);
+    });
+  });
+
+  // 공휴일 맵 (그리드가 걸치는 연도 전부 확인 - 연말/연초 경계 대비)
+  const holidayMap = {};
+  const holidayYears = new Set([gridStart.getFullYear(), gridEnd.getFullYear()]);
+  holidayYears.forEach(y => {
+    getKoreanHolidays(y).forEach(h => {
+      if(h.date >= gridStartStr && h.date <= gridEndStr) {
+        if(!holidayMap[h.date]) holidayMap[h.date]=[];
+        holidayMap[h.date].push(h.name);
+      }
+    });
+  });
+
+  const renderCalCell = (ds, dNum, isOtherMonth) => {
+    const dow = new Date(ds+'T00:00:00').getDay();
+    const isToday = ds === td;
+    const dayEvents = dayMap[ds] || [];
+    const dayHolidays = holidayMap[ds] || [];
+    const tgClass = dayHolidays.length ? 'holiday' : (dow===0?'sun':dow===6?'sat':'');
+    return `<div class="cal-cell${isToday?' today':''}${isOtherMonth?' other-month':''}" onclick="openEventModal('${ds}')">
+      <div class="cal-date ${tgClass}">${dNum}</div>
+      ${dayHolidays.map(name => `<div class="holiday-chip" title="공휴일">${name}</div>`).join('')}
+      ${dayEvents.slice(0,3).map(e => {
+        const tg = DB.eventTags.find(x=>x.name===e.tag);
+        const bg = tg?tg.color:'#6366f1';
+        const timeStr = e.time ? `<span style="opacity:.85;margin-right:3px">${e.time}</span>` : '';
+        return `<div class="ev-chip" style="background:${bg}" onclick="event.stopPropagation();showEventDetail('${e.id}','${ds}')">${timeStr}${e.content}</div>`;
+      }).join('')}
+      ${dayEvents.length>3?`<div style="font-size:9px;color:var(--sub)">+${dayEvents.length-3}개</div>`:''}
+    </div>`;
+  };
+
+  let html = '<div class="cal-dow">월</div><div class="cal-dow">화</div><div class="cal-dow">수</div><div class="cal-dow">목</div><div class="cal-dow">금</div><div class="cal-dow">토</div><div class="cal-dow">일</div>';
+  // 이전 달 꼬리 (흐리게, 실제 날짜/일정/공휴일 표시)
+  for(let i=0;i<firstDow;i++) {
+    const dt = new Date(gridStart);
+    dt.setDate(dt.getDate() + i);
+    html += renderCalCell(fmtDate(dt), dt.getDate(), true);
+  }
+  for(let d=1;d<=days;d++) {
+    const ds = `${calYear}-${String(calMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    html += renderCalCell(ds, d, false);
+  }
+  // 다음 달 머리 (흐리게, 실제 날짜/일정/공휴일 표시)
+  for(let i=0;i<rem0;i++) {
+    const dt = new Date(calYear, calMonth-1, days);
+    dt.setDate(dt.getDate() + 1 + i);
+    html += renderCalCell(fmtDate(dt), dt.getDate(), true);
+  }
+
+  document.getElementById('cal-grid').innerHTML = html;
+
+  // Tag legend
+  let legendHtml = DB.eventTags.map(tg => `
+    <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px">
+      <span style="width:10px;height:10px;border-radius:50%;background:${tg.color};display:inline-block"></span>${tg.name}
+    </span>
+  `).join('');
+  document.getElementById('cal-tag-legend').innerHTML = legendHtml;
+}
+
+function moveCalMonth(dir) {
+  calMonth += dir;
+  if(calMonth>12){calMonth=1;calYear++;}
+  if(calMonth<1){calMonth=12;calYear--;}
+  renderCalendar();
+}
+
+// Event detail
+function showEventDetail(id, occDate) {
+  _viewingEventId = id; _viewingOccDate = occDate || null;
+  const e = DB.events.find(x => x.id === id); if(!e) return;
+  const tg = DB.eventTags.find(x => x.name === e.tag);
+  const bg = tg ? tg.color : '#6366f1';
+  let html = `<div style="margin-bottom:12px"><span style="background:${bg};color:#fff;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600">${e.tag||''}</span></div>
+    <div style="font-size:17px;font-weight:700;margin-bottom:12px">${e.content}</div>
+    <div style="font-size:13px;color:var(--sub);margin-bottom:8px">📅 ${occDate||e.date}${e.date_end?' ~ '+e.date_end:''}</div>
+    ${e.time ? `<div style="font-size:13px;color:var(--sub);margin-bottom:8px">🕐 ${e.time}</div>` : ''}
+    ${e.repeat && e.repeat!=='none' ? `<div style="font-size:12px;color:var(--sub);margin-bottom:8px">🔄 ${e.repeat==='weekly'?'매주':'매월'} 반복</div>` : ''}
+    ${e.memo ? `<div style="margin-top:14px;padding:12px;background:var(--bg);border-radius:10px;font-size:14px;line-height:1.6;white-space:pre-wrap">${e.memo}</div>` : ''}`;
+  document.getElementById('event-detail-content').innerHTML = html;
+  openModal('modal-event-detail');
+}
+
+function editCurrentEvent() {
+  closeModal('modal-event-detail');
+  editEvent(_viewingEventId, _viewingOccDate);
+}
+
+// Event modal
+function openEventModal(dateStr) {
+  editingEventId = null;
+  editingEventOccDate = null;
+  _editRepeatMode = null;
+  document.getElementById('event-modal-title').textContent = '일정 추가';
+  document.getElementById('ev-content').value = '';
+  document.getElementById('ev-date').value = dateStr || today();
+  document.getElementById('ev-date-end').value = '';
+  document.getElementById('ev-time').value = '';
+  document.getElementById('ev-repeat').value = 'none';
+  document.getElementById('ev-memo').value = '';
+  document.getElementById('ev-delete-btn').style.display = 'none';
+  // Populate tag select
+  const sel = document.getElementById('ev-tag');
+  sel.innerHTML = DB.eventTags.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
+  openModal('modal-event');
+}
+
+function editEvent(id, occDate) {
+  const e = DB.events.find(x => x.id === id);
+  if(!e) return;
+  if(e.repeat && e.repeat!=='none') {
+    openRepeatChoice(
+      '반복 일정 수정', '이 일정은 반복 일정이에요. 어떻게 수정할까요?',
+      '이 일정만 수정', '이후 모든 일정 수정',
+      (kind) => { _editRepeatMode = kind==='this' ? 'this' : 'all'; openEventEditForm(e, occDate); }
+    );
+    return;
+  }
+  _editRepeatMode = null;
+  openEventEditForm(e, occDate);
+}
+function openEventEditForm(e, occDate) {
+  editingEventId = e.id;
+  editingEventOccDate = occDate || e.date;
+  document.getElementById('event-modal-title').textContent = '일정 수정';
+  document.getElementById('ev-content').value = e.content;
+  const sel = document.getElementById('ev-tag');
+  sel.innerHTML = DB.eventTags.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
+  sel.value = e.tag;
+  document.getElementById('ev-date').value = occDate || e.date;
+  document.getElementById('ev-date-end').value = (_editRepeatMode==='this') ? '' : (e.date_end || '');
+  document.getElementById('ev-time').value = e.time || '';
+  document.getElementById('ev-repeat').value = (_editRepeatMode==='this') ? 'none' : (e.repeat || 'none');
+  document.getElementById('ev-memo').value = e.memo || '';
+  document.getElementById('ev-delete-btn').style.display = '';
+  openModal('modal-event');
+}
+
+async function saveEvent() {
+  const content = document.getElementById('ev-content').value.trim();
+  if(!content) { alert('내용을 입력하세요'); return; }
+  const dateEnd = document.getElementById('ev-date-end').value;
+
+  // 반복 일정의 "이 일정만 수정": 원본 시리즈에는 예외로 빼고, 수정 내용은 별도의 단일 일정으로 새로 저장
+  if(editingEventId && _editRepeatMode === 'this') {
+    const orig = DB.events.find(x => x.id === editingEventId);
+    if(orig) {
+      const origOccDate = editingEventOccDate || orig.date;
+      const exceptions = [...(orig.exceptions||[]), origOccDate];
+      await SB.from('dash_events').update({exceptions}).eq('id', orig.id);
+      orig.exceptions = exceptions;
+    }
+    const newObj = {
+      id: uid(), mode: currentMode,
+      content,
+      tag: document.getElementById('ev-tag').value,
+      date: document.getElementById('ev-date').value,
+      date_end: dateEnd || null,
+      time: document.getElementById('ev-time').value || null,
+      repeat: 'none',
+      exceptions: null,
+      memo: document.getElementById('ev-memo').value.trim() || null,
+    };
+    await SB.from('dash_events').insert(newObj);
+    DB.events.push(newObj);
+    editingEventOccDate = null; _editRepeatMode = null;
+    closeModal('modal-event');
+    renderCalendar();
+    if(currentPage==='dashboard') renderDashboard();
+    return;
+  }
+
+  const id = editingEventId || uid();
+  const existing = DB.events.find(x => x.id===id);
+  const obj = {
+    id, mode: currentMode,
+    content,
+    tag: document.getElementById('ev-tag').value,
+    date: document.getElementById('ev-date').value,
+    date_end: dateEnd || null,
+    time: document.getElementById('ev-time').value || null,
+    repeat: document.getElementById('ev-repeat').value,
+    exceptions: existing?.exceptions || null,
+    memo: document.getElementById('ev-memo').value.trim() || null,
+  };
+  if(editingEventId) {
+    await SB.from('dash_events').update(obj).eq('id', id);
+    const idx = DB.events.findIndex(x=>x.id===id);
+    if(idx>=0) DB.events[idx] = obj;
+  } else {
+    await SB.from('dash_events').insert(obj);
+    DB.events.push(obj);
+  }
+  editingEventOccDate = null; _editRepeatMode = null;
+  closeModal('modal-event');
+  renderCalendar();
+  if(currentPage==='dashboard') renderDashboard();
+}
+
+async function deleteEvent() {
+  if(!editingEventId) return;
+  const e = DB.events.find(x => x.id === editingEventId);
+  if(!e) return;
+  if(e.repeat && e.repeat!=='none') {
+    const occDate = editingEventOccDate || e.date;
+    openRepeatChoice(
+      '반복 일정 삭제', '이 일정은 반복 일정이에요. 어떻게 삭제할까요?',
+      '이 일정만 삭제', '이후 모든 일정 삭제',
+      async (kind) => {
+        if(kind === 'this') {
+          const exceptions = [...(e.exceptions||[]), occDate];
+          await SB.from('dash_events').update({exceptions}).eq('id', e.id);
+          e.exceptions = exceptions;
+        } else if(!occDate || occDate <= e.date) {
+          // 첫 발생일부터 삭제하는 경우 = 시리즈 전체 삭제
+          await SB.from('dash_events').delete().eq('id', e.id);
+          DB.events = DB.events.filter(x=>x.id!==e.id);
+        } else {
+          // occDate 하루 전까지만 반복되도록 종료일 설정 (그 이전 발생은 유지)
+          const d = new Date(occDate+'T00:00:00');
+          d.setDate(d.getDate()-1);
+          const newEnd = fmtDate(d);
+          await SB.from('dash_events').update({date_end:newEnd}).eq('id', e.id);
+          e.date_end = newEnd;
+        }
+        editingEventId = null; editingEventOccDate = null; _editRepeatMode = null;
+        closeModal('modal-event');
+        renderCalendar();
+        if(currentPage==='dashboard') renderDashboard();
+      }
+    );
+    return;
+  }
+  if(!confirm('일정을 삭제하시겠습니까?')) return;
+  await SB.from('dash_events').delete().eq('id', editingEventId);
+  DB.events = DB.events.filter(x=>x.id!==editingEventId);
+  editingEventOccDate = null; _editRepeatMode = null;
+  closeModal('modal-event');
+  renderCalendar();
+  if(currentPage==='dashboard') renderDashboard();
+}
+
+// ============================================================
+// WEEKLY
+// ============================================================
+const DAYS_KO = ['일','월','화','수','목','금','토'];
+const PRIO_EMOJIS = {high:'🔴', normal:'🟡', low:'🟢'};
+const PRIO_CYCLE = ['high','normal','low'];
+const PRIO_COLORS = {high:'#ef4444', normal:'#f59e0b', low:'#22c55e'};
+const PRIO_LABELS = {high:'높음', normal:'중간', low:'낮음'};
+const weekPrio = {};
+let weekOffset = 0;
+let todayOffset = 0;
+
+function moveWeek(dir) { weekOffset += dir; renderWeekly(); }
+function moveDay(dir) { todayOffset += dir; renderToday(); }
+function viewDate() {
+  const d = new Date();
+  d.setDate(d.getDate() + todayOffset);
+  return fmtDate(d);
+}
+
+function cycleWeekPrio(ds) {
+  const cur = weekPrio[ds]||'normal';
+  weekPrio[ds] = PRIO_CYCLE[(PRIO_CYCLE.indexOf(cur)+1)%3];
+  const el = document.getElementById('week-prio-'+ds);
+  if(el) el.textContent = PRIO_EMOJIS[weekPrio[ds]];
+}
+
+let weekAddPrio = 'normal';
+
+function renderWeekly() {
+  const wr = getWeekRange();
+  const startDate = new Date(wr.start);
+  // Week badge
+  const ys = startDate.getFullYear();
+  const ym = startDate.getMonth()+1;
+  const badge = document.getElementById('week-badge');
+  if(badge) {
+    const weekInMonth = Math.ceil(startDate.getDate() / 7);
+    badge.textContent = `${ym}월 ${weekInMonth}주차  ${wr.start.slice(5).replace('-','.')} ~ ${wr.end.slice(5).replace('-','.')}`;
+  }
+
+  // 이번 주 전체 할 일 (날짜 구분 없이 평면 리스트)
+  const weekTodos = DB.weeklyTodos.filter(t => t.date >= wr.start && t.date <= wr.end)
+    .sort((a,b) => (a.date||'').localeCompare(b.date||'') || (a.sort_order||0)-(b.sort_order||0));
+
+  const listHtml = weekTodos.map(t => {
+    const p = t.priority||'normal';
+    const pc = PRIO_COLORS[p]||'#f59e0b';
+    const pl = PRIO_LABELS[p]||'중간';
+    const d = new Date(t.date+'T00:00:00');
+    const dayLabel = `${t.date.slice(5).replace('-','.')}(${DAYS_KO[d.getDay()]})`;
+    return `<div class="todo-item${t.done?' done':''}" id="todo-${t.id}">
+      <span class="drag-handle">⠿</span>
+      <input type="checkbox" class="todo-check" ${t.done?'checked':''} onchange="toggleTodo('${t.id}','weekly',this.checked)">
+      <span style="font-size:11px;color:var(--sub);flex-shrink:0;min-width:54px">${dayLabel}</span>
+      <span class="todo-text" style="flex:1" contenteditable="true" spellcheck="false" data-id="${t.id}" data-type="weekly" onblur="saveTodoEdit(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">${t.content}</span>
+      <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${pc}22;color:${pc};flex-shrink:0;font-weight:600;cursor:pointer" onclick="cycleTodoPriority('${t.id}','weekly')" title="클릭하여 우선순위 변경">${pl}</span>
+      <button class="todo-delete" onclick="deleteTodo('${t.id}','weekly')">✕</button>
+    </div>`;
+  }).join('') || '<div style="text-align:center;padding:24px;color:var(--sub);font-size:13px">이번 주 할 일이 없어요</div>';
+
+  document.getElementById('weekly-content').innerHTML = `
+    <div class="todo-list" id="week-flat-list">${listHtml}</div>
+    <div style="display:flex;gap:6px;margin-top:12px;align-items:center">
+      <div id="week-add-prio" style="display:flex;gap:5px;flex-shrink:0">${prioDotsHtml('week-add', weekAddPrio)}</div>
+      <input type="text" id="week-input" placeholder="할 일 입력 후 Enter..."
+        style="flex:1;min-width:0;padding:8px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;background:var(--card)"
+        onkeydown="if(event.key==='Enter') quickAddWeekly()">
+      <button class="btn btn-primary" style="border-radius:12px" onclick="quickAddWeekly()">추가</button>
+    </div>`;
+
+  const el = document.getElementById('week-flat-list');
+  if(el) new Sortable(el, {handle:'.drag-handle', animation:150, onEnd: e => reorderWeekFlatTodos(e)});
+}
+
+function renderTodoItem(t, type) {
+  const p = t.priority||'normal';
+  const pc = PRIO_COLORS[p]||'#f59e0b';
+  const pl = PRIO_LABELS[p]||'중간';
+  return `<div class="todo-item${t.done?' done':''}" id="todo-${t.id}">
+    <span class="drag-handle">⠿</span>
+    <input type="checkbox" class="todo-check" ${t.done?'checked':''} onchange="toggleTodo('${t.id}','${type}',this.checked)">
+    <span class="todo-text" style="flex:1" contenteditable="true" spellcheck="false" data-id="${t.id}" data-type="${type}" onblur="saveTodoEdit(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">${t.content}</span>
+    <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${pc}22;color:${pc};flex-shrink:0;font-weight:600;cursor:pointer" onclick="cycleTodoPriority('${t.id}','${type}')" title="클릭하여 우선순위 변경">${pl}</span>
+    <button class="todo-delete" onclick="deleteTodo('${t.id}','${type}')">✕</button>
+  </div>`;
+}
+
+const todayPrio = {am:'normal', pm:'normal'};
+
+// 우선순위 점(높음/중간/낮음) 클릭 선택 - 오늘 할 일(오전/오후) & 이번 주 할 일 추가줄 공용
+function pickPrio(btn) {
+  const target = btn.dataset.target;
+  const val = btn.dataset.val;
+  if(target==='week-add') weekAddPrio = val;
+  else todayPrio[target] = val;
+  btn.parentElement.querySelectorAll('.prio-dot').forEach(b=>b.classList.toggle('active', b===btn));
+}
+function prioDotsHtml(target, current) {
+  return PRIO_CYCLE.map(p=>`<button type="button" class="prio-dot${current===p?' active':''}" data-target="${target}" data-val="${p}" style="background:${PRIO_COLORS[p]}" onclick="pickPrio(this)" title="${PRIO_LABELS[p]}"></button>`).join('');
+}
+
+function renderToday() {
+  // 미래로는 이동 불가
+  if(todayOffset > 0) todayOffset = 0;
+  const td = viewDate();
+  const DAYS_KR = ['일','월','화','수','목','금','토'];
+  const d = new Date(); d.setDate(d.getDate()+todayOffset);
+  const badge = document.getElementById('today-badge');
+  const isToday = todayOffset === 0;
+  if(badge) badge.textContent = isToday ? `오늘 ${td.slice(5).replace('-','.')} (${DAYS_KR[d.getDay()]})` : `${td.slice(5).replace('-','.')} (${DAYS_KR[d.getDay()]})`;
+
+  const allTodos = DB.todos.filter(t => t.date===td).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  // am: time_section==='am' or no time_section (기존 데이터 호환)
+  const amTodos = allTodos.filter(t => t.time_section==='am' || !t.time_section);
+  const pmTodos = allTodos.filter(t => t.time_section==='pm');
+
+  document.getElementById('today-am-list').innerHTML = amTodos.map(t=>renderTodoItem(t,'today')).join('');
+  document.getElementById('today-pm-list').innerHTML = pmTodos.map(t=>renderTodoItem(t,'today')).join('');
+
+  // 입력창: 오늘일 때만 표시
+  ['am','pm'].forEach(sec => {
+    const inputRow = document.getElementById('today-'+sec+'-input-row');
+    if(inputRow) inputRow.style.display = isToday ? 'flex' : 'none';
+    const el = document.getElementById('today-'+sec+'-list');
+    if(el) new Sortable(el, {handle:'.drag-handle', animation:150, onEnd: () => reorderTodayTodos(sec)});
+  });
+}
+
+async function quickAddToday(sec) {
+  const input = document.getElementById('today-'+sec+'-input');
+  if(!input) return;
+  const content = input.value.trim();
+  if(!content) return;
+  const priority = todayPrio[sec]||'normal';
+  const obj = { id:uid(), mode:currentMode, type:'today', content, date:today(), priority, time_section:sec, done:false, sort_order: DB.todos.length };
+  await SB.from('dash_todos').insert(obj);
+  DB.todos.push(obj);
+  input.value = '';
+  renderToday();
+  if(currentPage==='dashboard') renderDashboard();
+}
+
+async function quickAddWeekly() {
+  const input = document.getElementById('week-input');
+  if(!input) return;
+  const content = input.value.trim();
+  if(!content) return;
+  const wr = getWeekRange();
+  // 기본 날짜는 오늘 (주 범위 안이면 오늘, 아니면 주 시작일)
+  const td = today();
+  const ds = (td >= wr.start && td <= wr.end) ? td : wr.start;
+  const priority = weekAddPrio;
+  const obj = { id:uid(), mode:currentMode, type:'weekly', content, date:ds, priority, done:false, sort_order: DB.weeklyTodos.length };
+  await SB.from('dash_todos').insert(obj);
+  DB.weeklyTodos.push(obj);
+  input.value='';
+  renderWeekly();
+  if(currentPage==='dashboard') renderDashboard();
+}
+
+async function reorderWeekFlatTodos(e) {
+  const list = document.getElementById('week-flat-list');
+  if(!list) return;
+  const ids = [...list.children].filter(el=>el.id&&el.id.startsWith('todo-')).map(el=>el.id.replace('todo-',''));
+  for(let i=0;i<ids.length;i++) {
+    await SB.from('dash_todos').update({sort_order:i}).eq('id',ids[i]);
+    const t = DB.weeklyTodos.find(x=>x.id===ids[i]);
+    if(t) t.sort_order=i;
+  }
+}
+
+async function toggleTodo(id, type, checked) {
+  await SB.from('dash_todos').update({done:checked}).eq('id',id);
+  const arr = type==='weekly' ? DB.weeklyTodos : DB.todos;
+  const t = arr.find(x=>x.id===id);
+  if(t) t.done = checked;
+  const el = document.getElementById('todo-'+id);
+  if(el) el.classList.toggle('done', checked);
+  if(currentPage==='dashboard') renderDashboard();
+}
+
+async function saveTodoEdit(el) {
+  const id = el.dataset.id, type = el.dataset.type;
+  const arr = type==='weekly' ? DB.weeklyTodos : DB.todos;
+  const t = arr.find(x=>x.id===id);
+  const content = el.textContent.replace(/\s+/g,' ').trim();
+  if(!content) { el.textContent = t ? t.content : ''; return; }
+  if(t && t.content === content) return;
+  await SB.from('dash_todos').update({content}).eq('id',id);
+  if(t) t.content = content;
+  if(currentPage==='dashboard') renderDashboard();
+}
+
+async function cycleTodoPriority(id, type) {
+  const arr = type==='weekly' ? DB.weeklyTodos : DB.todos;
+  const t = arr.find(x=>x.id===id);
+  if(!t) return;
+  const cur = t.priority||'normal';
+  const next = PRIO_CYCLE[(PRIO_CYCLE.indexOf(cur)+1)%3];
+  t.priority = next;
+  await SB.from('dash_todos').update({priority:next}).eq('id',id);
+  if(type==='weekly') renderWeekly(); else renderToday();
+  if(currentPage==='dashboard') renderDashboard();
+}
+
+async function deleteTodo(id, type) {
+  await SB.from('dash_todos').delete().eq('id',id);
+  if(type==='weekly') DB.weeklyTodos = DB.weeklyTodos.filter(x=>x.id!==id);
+  else DB.todos = DB.todos.filter(x=>x.id!==id);
+  if(type==='weekly') renderWeekly();
+  else renderToday();
+  if(currentPage==='dashboard') renderDashboard();
+}
+
+async function reorderTodayTodos(sec) {
+  const list = document.getElementById('today-'+sec+'-list');
+  if(!list) return;
+  const ids = [...list.children].filter(el=>el.id&&el.id.startsWith('todo-')).map(el => el.id.replace('todo-',''));
+  for(let i=0;i<ids.length;i++) {
+    await SB.from('dash_todos').update({sort_order:i}).eq('id',ids[i]);
+    const t = DB.todos.find(x=>x.id===ids[i]);
+    if(t) t.sort_order=i;
+  }
+}
+
+async function reorderWeekTodos(ds, e) {
+  const list = document.getElementById('week-day-'+ds);
+  if(!list) return;
+  const ids = [...list.children].filter(el=>el.id&&el.id.startsWith('todo-')).map(el => el.id.replace('todo-',''));
+  for(let i=0;i<ids.length;i++) {
+    await SB.from('dash_todos').update({sort_order:i}).eq('id',ids[i]);
+    const t = DB.weeklyTodos.find(x=>x.id===ids[i]);
+    if(t) t.sort_order=i;
+  }
+}
+
+// ============================================================
+// NOTES
+// ============================================================
+const NOTE_SUBJECT_GROUPS = ['전공','세미나'];
+const SEM_ORDER = ['1','2','S','W'];
+let activeNoteGroup = '전체';
+let activeNoteSem = 'all';
+let activeNoteSubject = 'all';
+let activeNoteMonth = 'all';
+
+function pill(label, active, onclick) {
+  return `<button onclick="${onclick}" style="padding:5px 12px;border-radius:20px;border:1.5px solid ${active?'var(--accent)':'var(--border)'};background:${active?'var(--accent)':'var(--card)'};color:${active?'#fff':'var(--text)'};cursor:pointer;font-size:13px;font-weight:${active?600:400};white-space:nowrap">${label}</button>`;
+}
+
+function renderNotes() {
+  const m = MODES[currentMode];
+  document.getElementById('notes-title').textContent = m.noteLabel || '강의노트';
+
+  // 학기 필터
+  const semEl = document.getElementById('note-sem-pills');
+  const yearSems = [...new Set((DB.curricula||[]).map(c=>`${c.year}_${c.sem}`))].sort((a,b)=>{
+    const[ay,as]=a.split('_');const[by,bs]=b.split('_');
+    return ay!==by?ay-by:SEM_ORDER.indexOf(as)-SEM_ORDER.indexOf(bs);
+  });
+  if(yearSems.length) {
+    semEl.style.display='flex';
+    semEl.innerHTML = pill('전체', activeNoteSem==='all', "setNoteSem('all')") +
+      yearSems.map(ys=>pill(yearSemLabel(ys), activeNoteSem===ys, `setNoteSem('${ys}')`)).join('');
+  } else { semEl.style.display='none'; }
+
+  // 과목 필터 (선택된 학기에 노트가 있는 과목만)
+  const subjEl = document.getElementById('note-subject-pills');
+  const semSubjects=(DB.curricula||[]).filter(c=>activeNoteSem==='all'||`${c.year}_${c.sem}`===activeNoteSem).map(c=>c.name);
+  const notedSubjects=[...new Set(DB.notes.filter(n=>n.subject&&semSubjects.includes(n.subject)).map(n=>n.subject))].sort();
+  if(notedSubjects.length){
+    subjEl.style.display='flex';
+    subjEl.innerHTML=pill('전체',activeNoteSubject==='all',"setNoteSubject('all')")+notedSubjects.map(s=>pill(s,activeNoteSubject===s,`setNoteSubject('${s}')`)).join('');
+  } else { subjEl.style.display='none'; activeNoteSubject='all'; }
+
+  // 월별 필터
+  const months = [...new Set(DB.notes.map(n=>(n.date||'').slice(0,7)).filter(Boolean))].sort().reverse();
+  document.getElementById('note-month-pills').innerHTML =
+    pill('전체', activeNoteMonth==='all', "setNoteMonth('all')") +
+    months.map(m=>pill(m.slice(5)+'월', activeNoteMonth===m, `setNoteMonth('${m}')`)).join('');
+
+  // 필터링
+  const m2 = MODES[currentMode];
+  const filtered = DB.notes.filter(n=>{
+    if(activeNoteMonth!=='all' && !(n.date||'').startsWith(activeNoteMonth)) return false;
+    if(activeNoteSubject!=='all' && n.subject!==activeNoteSubject) return false;
+    if(activeNoteSem!=='all') {
+      const c=(DB.curricula||[]).find(x=>x.name===n.subject);
+      const ns=c?`${c.year}_${c.sem}`:null;
+      if(ns&&ns!==activeNoteSem) return false;
+      if(!ns&&n.subject) return false;
+    }
+    return true;
+  }).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+
+  document.getElementById('note-list').innerHTML = filtered.length ? filtered.map(n=>`
+    <div id="nc-${n.id}" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px;cursor:pointer" onclick="toggleNoteCard('${n.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-weight:700;font-size:14px;margin-bottom:3px">${n.title||'(제목 없음)'}</div>
+          <div style="font-size:12px;color:var(--sub)">${n.date||''}${n.subject?' · '+n.subject:''}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;margin-left:10px">
+          <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();editNote('${n.id}')">수정</button>
+          <button class="btn btn-xs" style="background:none;border:none;color:var(--sub);font-size:16px;padding:2px 4px" onclick="event.stopPropagation();quickDelNote('${n.id}')">✕</button>
+        </div>
+      </div>
+      <div id="nc-body-${n.id}" class="rich-content" style="display:none;margin-top:12px;font-size:14px;line-height:1.7;border-top:1px solid var(--border);padding-top:12px">${n.content||''}</div>
+    </div>
+  `).join('') : `<div style="text-align:center;padding:48px 0;color:var(--sub)">노트가 없습니다</div>`;
+}
+
+function setNoteSem(s){activeNoteSem=s;activeNoteSubject='all';renderNotes();}
+function setNoteGroup(g){activeNoteGroup=g;activeNoteSubject='all';renderNotes();}
+function setNoteMonth(m){activeNoteMonth=m;renderNotes();}
+function setNoteSubject(s){activeNoteSubject=s;renderNotes();}
+function toggleNoteCard(id){const b=document.getElementById('nc-body-'+id);if(b)b.style.display=b.style.display==='none'?'':'none';}
+
+function yearSemLabel(key) {
+  const YEAR_LABEL={1:'1학년',2:'2학년'};
+  const SEM_LABEL={1:'1학기',2:'2학기',S:'여름계절',W:'겨울계절'};
+  const[y,s]=key.split('_');
+  return `${YEAR_LABEL[y]||y+'학년'} ${SEM_LABEL[s]||s}`;
+}
+
+function ntPopulateSemSel(savedSem) {
+  const YEAR_LABEL={1:'1학년',2:'2학년'};
+  const SEM_LABEL={1:'1학기',2:'2학기',S:'여름계절',W:'겨울계절'};
+  const yearSems=[...new Set((DB.curricula||[]).map(c=>`${c.year}_${c.sem}`))].sort((a,b)=>{
+    const[ay,as]=a.split('_');const[by,bs]=b.split('_');
+    return ay!==by?ay-by:['1','2','S','W'].indexOf(as)-['1','2','S','W'].indexOf(bs);
+  });
+  document.getElementById('nt-sem-sel').innerHTML=
+    `<option value="">학기 없음</option>`+
+    yearSems.map(k=>{const[y,s]=k.split('_');return`<option value="${k}"${k===savedSem?' selected':''}>${YEAR_LABEL[y]||y+'학년'} ${SEM_LABEL[s]||s}</option>`;}).join('');
+}
+function ntOnSemChange() {
+  const sem=document.getElementById('nt-sem-sel').value;
+  ntPopulateSubjectSel(sem,'');
+}
+function ntPopulateSubjectSel(sem, savedSubject) {
+  const subjects=(DB.curricula||[]).filter(c=>!sem||`${c.year}_${c.sem}`===sem).map(c=>c.name);
+  document.getElementById('nt-subject-sel').innerHTML=
+    `<option value="">과목 없음</option>`+
+    subjects.map(s=>`<option${s===savedSubject?' selected':''}>${s}</option>`).join('');
+}
+function populateNtSubjectSel(savedSubject) {
+  // find which sem this subject belongs to
+  const c=(DB.curricula||[]).find(x=>x.name===savedSubject);
+  const savedSem=c?`${c.year}_${c.sem}`:'';
+  ntPopulateSemSel(savedSem);
+  ntPopulateSubjectSel(savedSem, savedSubject);
+}
+function openNoteModal() {
+  document.getElementById('nt-id').value='';
+  document.getElementById('nt-title').value='';
+  ntPopulateSemSel('');
+  ntPopulateSubjectSel('','');
+  document.getElementById('nt-date').value=today();
+  document.getElementById('nt-content').innerHTML='';
+  document.getElementById('nt-del-btn').style.display='none';
+  document.getElementById('note-modal-title').textContent='노트 작성';
+  openModal('modal-note');
+  setTimeout(()=>document.getElementById('nt-title').focus(),100);
+}
+function closeNoteEditor() {
+  closeModal('modal-note');
+  renderNotes();
+}
+function editNote(id) {
+  const n=DB.notes.find(x=>x.id===id); if(!n)return;
+  document.getElementById('nt-id').value=id;
+  document.getElementById('nt-title').value=n.title||'';
+  document.getElementById('note-modal-title').textContent='노트 수정';
+  populateNtSubjectSel(n.subject||'');
+  document.getElementById('nt-date').value=n.date||today();
+  document.getElementById('nt-content').innerHTML=n.content||'';
+  document.getElementById('nt-del-btn').style.display='';
+  openModal('modal-note');
+  setTimeout(()=>document.getElementById('nt-title').focus(),100);
+}
+function updateNtSubject(savedSubject='', savedSem='') {
+  /* legacy stub – no-op now that modal uses populateNtSubjectSel */
+}
+function updateNtSubjectFromSem() { /* no-op */ }
+function noteCmd(cmd){document.getElementById('nt-content').focus();document.execCommand(cmd,false,null);}
+
+// 자동 번호매김: "1." "1)" "(1)" "-" "*" 입력 후 스페이스를 누르면 자동으로 목록 시작
+// Tab / Shift+Tab 으로 들여쓰기(하위 번호 스타일 1. -> 1) -> (1) 은 CSS 카운터로 자동 적용)
+function ntEditorKeydown(e){
+  if(e.key==='Tab'){
+    e.preventDefault();
+    document.execCommand(e.shiftKey?'outdent':'indent');
+    return;
+  }
+  if(e.key!==' ') return;
+  const sel=window.getSelection();
+  if(!sel||!sel.rangeCount||!sel.isCollapsed) return;
+  const range=sel.getRangeAt(0);
+  const root=document.getElementById('nt-content');
+  let block=range.startContainer;
+  block = block.nodeType===3 ? block.parentElement : block;
+  while(block && block!==root && !['DIV','P','LI'].includes(block.tagName)) block=block.parentElement;
+  if(!block || block===root){
+    block = range.startContainer.nodeType===3 ? range.startContainer.parentElement : range.startContainer;
+  }
+  if(!block) return;
+  const pre=document.createRange();
+  pre.selectNodeContents(block);
+  pre.setEnd(range.startContainer, range.startOffset);
+  const text=pre.toString();
+  let type=null;
+  if(/^\d+[.)]$/.test(text) || /^\(\d+\)$/.test(text)) type='ordered';
+  else if(text==='-'||text==='*') type='unordered';
+  if(!type) return;
+  e.preventDefault();
+  pre.deleteContents();
+  document.execCommand(type==='ordered'?'insertOrderedList':'insertUnorderedList');
+}
+async function saveNote() {
+  const id=document.getElementById('nt-id').value;
+  const title=document.getElementById('nt-title').value.trim();
+  const date=document.getElementById('nt-date').value;
+  if(!title||!date){alert('제목과 날짜를 입력하세요');return;}
+  const subject=document.getElementById('nt-subject-sel').value||null;
+  // auto-derive group from curriculum type
+  const curric=(DB.curricula||[]).find(c=>c.name===subject);
+  const group=curric?(curric.type.includes('전공')?'전공':curric.type.includes('교양')?'교양':'기타'):'기타';
+  const content=document.getElementById('nt-content').innerHTML;
+  const obj={id:id||uid(), mode:currentMode, title, group, date, subject, content};
+  if(id){
+    await SB.from('dash_notes').update(obj).eq('id',id);
+    const i=DB.notes.findIndex(x=>x.id===id); if(i>=0) DB.notes[i]=obj;
+  } else {
+    await SB.from('dash_notes').insert(obj);
+    DB.notes.unshift(obj);
+  }
+  closeNoteEditor();
+}
+async function deleteNote() {
+  if(!confirm('삭제할까요?')) return;
+  const id=document.getElementById('nt-id').value;
+  await SB.from('dash_notes').delete().eq('id',id);
+  DB.notes=DB.notes.filter(x=>x.id!==id);
+  closeNoteEditor();
+}
+async function quickDelNote(id) {
+  if(!confirm('삭제할까요?')) return;
+  await SB.from('dash_notes').delete().eq('id',id);
+  DB.notes=DB.notes.filter(x=>x.id!==id);
+  renderNotes();
+}
+
+// Note groups
+function openNoteGroupManager() { renderNoteGroupList(); openModal('modal-note-group'); }
+function renderNoteGroupList() {
+  document.getElementById('note-group-list').innerHTML = DB.noteGroups.map(g => `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span style="flex:1">${g.name}</span>
+      <button class="btn btn-ghost btn-xs" onclick="deleteNoteGroup('${g.id}')">삭제</button>
+    </div>
+  `).join('') || '<div style="color:var(--sub);font-size:13px">그룹이 없습니다</div>';
+}
+async function addNoteGroup() {
+  const n = document.getElementById('new-group-name').value.trim();
+  if(!n) return;
+  const obj = {id:uid(), mode:currentMode, name:n};
+  await SB.from('dash_note_groups').insert(obj);
+  DB.noteGroups.push(obj);
+  document.getElementById('new-group-name').value='';
+  renderNoteGroupList();
+  renderNotes();
+}
+async function deleteNoteGroup(id) {
+  await SB.from('dash_note_groups').delete().eq('id',id);
+  DB.noteGroups = DB.noteGroups.filter(x=>x.id!==id);
+  renderNoteGroupList();
+  renderNotes();
+}
+
+// ============================================================
+// CURRICULUM
+// ============================================================
+const CURR_YEAR_LABEL = {1:'1학년',2:'2학년',3:'3학년',4:'4학년'}; // 기본 대학원 1~2학년 + 추가학기 대비 3~4학년
+const CURR_SEM_LABEL  = {1:'1학기',2:'2학기',S:'여름계절',W:'겨울계절'};
+const CURR_TYPE_COLOR = {'전공필수':'#ef4444','전공선택':'#f97316','교양필수':'#8b5cf6','교양선택':'#06b6d4'};
+let currYear='all', currSem='1';
+
+function _currItemRow(c) {
+  return `<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer" onclick="editCurr('${c.id}')">
+    <span style="width:8px;height:8px;border-radius:50%;background:${CURR_TYPE_COLOR[c.type]||'#999'};flex-shrink:0"></span>
+    <div style="flex:1;min-width:0">
+      <div style="font-weight:600;font-size:14px">${c.name}</div>
+      ${c.memo?`<div style="font-size:12px;color:var(--sub);margin-top:2px">${c.memo}</div>`:''}
+    </div>
+    <div style="text-align:right;flex-shrink:0">
+      <div style="font-size:12px;padding:2px 8px;border-radius:10px;background:${CURR_TYPE_COLOR[c.type]||'#999'}22;color:${CURR_TYPE_COLOR[c.type]||'#999'}">${c.type}</div>
+      <div style="font-size:12px;color:var(--sub);margin-top:3px">${c.credit}학점</div>
+    </div>
+  </div>`;
+}
+function _currSummaryBar(items) {
+  const total=items.reduce((a,c)=>a+(parseFloat(c.credit)||0),0);
+  return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 14px;background:var(--bg);border-radius:8px;margin-bottom:8px;font-size:13px">
+    <span style="color:var(--sub)">총 <b style="color:var(--text)">${items.length}과목</b></span>
+    <span style="color:var(--border)">|</span>
+    <span style="color:var(--sub)">총 <b style="color:var(--accent)">${total}학점</b></span>
+    ${Object.keys(CURR_TYPE_COLOR).map(t=>{const cnt=items.filter(c=>c.type===t).length;return cnt?`<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:${CURR_TYPE_COLOR[t]}22;color:${CURR_TYPE_COLOR[t]}">${t} ${cnt}</span>`:''}).join('')}
+  </div>`;
+}
+
+function renderCurriculum() {
+  if(!DB.curricula) DB.curricula=[];
+  // 기본 1~4학년 + 실제로 저장된 데이터에 더 높은 학년이 있으면 자동으로 탭 추가 (추가학기 대비)
+  const dataYears = [...new Set(DB.curricula.map(c=>parseInt(c.year)))].filter(y=>!isNaN(y));
+  const allYears = [...new Set([1,2, ...dataYears])].sort((a,b)=>a-b); // 기본 1~2학년 + 실제 3학년 이상 과목을 추가하면 자동으로 탭 생김(추가학기 대비)
+  const sems=['1','2','S','W'];
+
+  // 학년 탭
+  document.getElementById('curr-year-tabs').innerHTML =
+    [pill('전체', currYear==='all', "setCurrYear('all')")].concat(
+      allYears.filter(y=>DB.curricula.some(c=>String(c.year)===String(y))||currYear==='all').map(y=>
+        pill(CURR_YEAR_LABEL[y]||(y+'학년'), String(currYear)===String(y), `setCurrYear(${y})`)
+      )
+    ).join('');
+
+  if(currYear==='all') {
+    document.getElementById('curr-sem-tabs').innerHTML='';
+    document.getElementById('curr-summary').innerHTML='';
+    const allItems=DB.curricula;
+    const grandTotal=allItems.reduce((a,c)=>a+(parseFloat(c.credit)||0),0);
+    let html='';
+    if(allItems.length) {
+      html+=`<div style="padding:10px 14px;background:var(--card);border-radius:10px;border:1px solid var(--border);margin-bottom:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:14px;font-weight:600">총 ${allItems.length}과목</span>
+        <span style="color:var(--border)">|</span>
+        <span style="font-size:14px;color:var(--accent);font-weight:600">${grandTotal}학점</span>
+      </div>`;
+    }
+    allYears.forEach(y=>{
+      const yearItems=allItems.filter(c=>String(c.year)===String(y));
+      if(!yearItems.length) return;
+      html+=`<div style="font-size:15px;font-weight:700;margin:16px 0 6px">${CURR_YEAR_LABEL[y]||(y+'학년')}</div>`;
+      sems.forEach(s=>{
+        const semItems=yearItems.filter(c=>String(c.sem)===String(s));
+        if(!semItems.length) return;
+        const semCredit=semItems.reduce((a,c)=>a+(parseFloat(c.credit)||0),0);
+        html+=`<div style="font-size:13px;font-weight:600;color:var(--accent);margin:10px 0 4px;display:flex;align-items:center;gap:8px">${CURR_SEM_LABEL[s]}<span style="font-weight:400;color:var(--sub);font-size:12px">${semItems.length}과목 · ${semCredit}학점</span></div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:4px">${semItems.map(_currItemRow).join('')}</div>`;
+      });
+    });
+    if(!allItems.length) html=`<div style="text-align:center;padding:48px 0;color:var(--sub)">📋<br>아직 추가된 과목이 없어요</div>`;
+    document.getElementById('curr-list').innerHTML=html;
+    return;
+  }
+
+  // 학기 탭
+  document.getElementById('curr-sem-tabs').innerHTML=sems.map(s=>pill(CURR_SEM_LABEL[s], String(currSem)===String(s), `setCurrSem('${s}')`)).join('');
+  const items=DB.curricula.filter(c=>String(c.year)===String(currYear)&&String(c.sem)===String(currSem));
+  document.getElementById('curr-summary').innerHTML=items.length?_currSummaryBar(items):'';
+  document.getElementById('curr-list').innerHTML=items.length?
+    `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden">${items.map(_currItemRow).join('')}</div>`
+    :`<div style="text-align:center;padding:48px 0;color:var(--sub)">📋<br>${CURR_YEAR_LABEL[currYear]||(currYear+'학년')} ${CURR_SEM_LABEL[currSem]} 과목이 없어요</div>`;
+}
+
+function setCurrYear(y){currYear=y; if(y!=='all')currSem='1'; renderCurriculum();}
+function setCurrSem(s){currSem=s; renderCurriculum();}
+
+function openCurrModal() {
+  document.getElementById('curr-id').value='';
+  document.getElementById('curr-modal-h').textContent='과목 추가';
+  document.getElementById('curr-name').value='';
+  document.getElementById('curr-year').value=currYear==='all'?1:currYear;
+  document.getElementById('curr-sem').value=currSem;
+  document.getElementById('curr-credit').value='3';
+  document.getElementById('curr-type').value='전공필수';
+  document.getElementById('curr-memo').value='';
+  document.getElementById('curr-del-btn').style.display='none';
+  openModal('modal-curr');
+  setTimeout(()=>document.getElementById('curr-name').focus(),100);
+}
+function editCurr(id) {
+  const c=DB.curricula.find(x=>x.id===id); if(!c)return;
+  document.getElementById('curr-id').value=id;
+  document.getElementById('curr-modal-h').textContent='과목 수정';
+  document.getElementById('curr-name').value=c.name;
+  document.getElementById('curr-year').value=c.year;
+  document.getElementById('curr-sem').value=c.sem;
+  document.getElementById('curr-credit').value=c.credit;
+  document.getElementById('curr-type').value=c.type;
+  document.getElementById('curr-memo').value=c.memo||'';
+  document.getElementById('curr-del-btn').style.display='';
+  openModal('modal-curr');
+}
+async function saveCurr() {
+  const id=document.getElementById('curr-id').value;
+  const name=document.getElementById('curr-name').value.trim();
+  if(!name){alert('과목명을 입력하세요');return;}
+  const obj={id:id||uid(), mode:currentMode, name,
+    year:parseInt(document.getElementById('curr-year').value),
+    sem:document.getElementById('curr-sem').value,
+    credit:parseFloat(document.getElementById('curr-credit').value),
+    type:document.getElementById('curr-type').value,
+    memo:document.getElementById('curr-memo').value.trim()};
+  if(id){
+    await SB.from('dash_curriculum').update(obj).eq('id',id);
+    const i=DB.curricula.findIndex(x=>x.id===id); if(i>=0) DB.curricula[i]=obj;
+  } else {
+    await SB.from('dash_curriculum').insert(obj);
+    DB.curricula.push(obj);
+  }
+  closeModal('modal-curr'); renderCurriculum();
+}
+async function deleteCurr() {
+  if(!confirm('삭제할까요?'))return;
+  const id=document.getElementById('curr-id').value;
+  await SB.from('dash_curriculum').delete().eq('id',id);
+  DB.curricula=DB.curricula.filter(x=>x.id!==id);
+  closeModal('modal-curr'); renderCurriculum();
+}
+
+// ============================================================
+// TAG MANAGER
+// ============================================================
+function openTagManager() { renderTagList(); openModal('modal-tags'); }
+function renderTagList() {
+  document.getElementById('tag-list-container').innerHTML = DB.eventTags.map(t => `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <input type="color" id="tag-color-${t.id}" value="${t.color}" style="width:30px;height:30px;border:none;border-radius:6px;cursor:pointer;padding:0;flex-shrink:0">
+      <input type="text" id="tag-name-${t.id}" value="${t.name}" style="flex:1;min-width:0;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px" onkeydown="if(event.key==='Enter') saveTagEdit('${t.id}')">
+      <button class="btn btn-ghost btn-xs" onclick="saveTagEdit('${t.id}')">저장</button>
+      <button class="btn btn-ghost btn-xs" style="color:var(--danger)" onclick="deleteTag('${t.id}')">삭제</button>
+    </div>
+  `).join('');
+}
+async function saveTagEdit(id) {
+  const t = DB.eventTags.find(x=>x.id===id); if(!t) return;
+  const nameInput = document.getElementById('tag-name-'+id);
+  const colorInput = document.getElementById('tag-color-'+id);
+  const newName = (nameInput?.value||'').trim();
+  const newColor = colorInput?.value || t.color;
+  if(!newName) { alert('태그 이름을 입력하세요'); if(nameInput) nameInput.value = t.name; return; }
+  const oldName = t.name;
+  if(oldName === newName && t.color === newColor) return;
+  await SB.from('dash_event_tags').update({name:newName, color:newColor}).eq('id', id);
+  t.name = newName; t.color = newColor;
+  if(oldName !== newName) {
+    // 이 태그를 쓰고 있던 기존 일정들도 이름 변경을 반영
+    await SB.from('dash_events').update({tag:newName}).eq('mode', currentMode).eq('tag', oldName);
+    DB.events.forEach(e => { if(e.tag === oldName) e.tag = newName; });
+  }
+  renderTagList();
+  if(currentPage==='calendar') renderCalendar();
+  if(currentPage==='dashboard') renderDashboard();
+}
+async function addTag() {
+  const name = document.getElementById('new-tag-name').value.trim();
+  const color = document.getElementById('new-tag-color').value;
+  if(!name) return;
+  const obj = {id:uid(), mode:currentMode, name, color};
+  await SB.from('dash_event_tags').insert(obj);
+  DB.eventTags.push(obj);
+  document.getElementById('new-tag-name').value='';
+  renderTagList();
+}
+async function deleteTag(id) {
+  await SB.from('dash_event_tags').delete().eq('id',id);
+  DB.eventTags = DB.eventTags.filter(x=>x.id!==id);
+  renderTagList();
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+async function saveSettings() {
+  const label = document.getElementById('set-school-label').value.trim();
+  await SB.from('dash_settings').upsert({id:uid(), mode:currentMode, key:'school_label', value:label});
+  closeModal('modal-settings');
+}
+
+// ============================================================
+// MODAL HELPERS
+// ============================================================
+function openModal(id) { document.getElementById(id)?.classList.add('open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+// Close on overlay click
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if(e.target===el) el.classList.remove('open'); });
+});
+
+// ============================================================
+// HABIT TRACKER
+// ============================================================
+let htChores=[], htHabits=[];
+let htCRecords={}, htHRecords={};
+let htYears=[new Date().getFullYear()];
+const _htNow=new Date();
+const htTodayY=_htNow.getFullYear(), htTodayM=_htNow.getMonth()+1, htTodayD=_htNow.getDate();
+let htYear=htTodayY, htMonth=htTodayM;
+let htMainTab='calendar', htSubTab='chore';
+let htInitialized=false;
+let htReorderList=[], htReorderType='chore';
+let htAddType='chore', htSelectedColor='#88aa66';
+const HT_COLORS=['#88aa66','#e07878','#70b0d0','#d4a04a','#8888cc','#d47890','#5ab0a0','#a07850','#90a060','#b07090'];
+const HT_DOW=['일','월','화','수','목','금','토'];
+
+async function htInit() {
+  if(htInitialized){htUpdatePeriodLabel();htRenderCurrent();return;}
+  htInitialized=true;
+  await Promise.all([htLoadChores(),htLoadHabits(),htLoadCRecords(),htLoadHRecords()]);
+  htUpdatePeriodLabel();
+  htUpdateSubnav();
+  htRenderCurrent();
+}
+
+function htUpdatePeriodLabel() {
+  const el=document.getElementById('ht-period-label');
+  if(el) el.textContent=`${htYear}년 ${htMonth}월`;
+}
+
+async function htMoveMonth(dir) {
+  htMonth+=dir;
+  if(htMonth>12){htMonth=1;htYear++;}
+  if(htMonth<1){htMonth=12;htYear--;}
+  htUpdatePeriodLabel();
+  await Promise.all([htLoadCRecords(),htLoadHRecords()]);
+  htRenderCurrent();
+}
+
+async function htLoadChores() {
+  const {data}=await SB.from('chores').select('*').order('sort_order');
+  htChores=data||[];
+}
+async function htLoadHabits() {
+  const {data}=await SB.from('habits').select('*').order('sort_order');
+  htHabits=data||[];
+}
+async function htLoadCRecords() {
+  const {data}=await SB.from('chore_records').select('*').gte('date',`${htYear}-01-01`).lte('date',`${htYear}-12-31`);
+  htCRecords={};
+  (data||[]).forEach(r => {
+    if(!htCRecords[r.date]) htCRecords[r.date]={};
+    htCRecords[r.date][r.chore_id]=r;
+  });
+}
+async function htLoadHRecords() {
+  const {data}=await SB.from('habit_records').select('*').gte('date',`${htYear}-01-01`).lte('date',`${htYear}-12-31`);
+  htHRecords={};
+  (data||[]).forEach(r => {
+    if(!htHRecords[r.date]) htHRecords[r.date]={};
+    htHRecords[r.date][r.habit_id]=r;
+  });
+}
+
+function htRenderYearSel() { htUpdatePeriodLabel(); } // 레거시 호환
+
+function htUpdateSubnav() {
+  const sn=document.getElementById('ht-subnav');
+  if(htMainTab==='calendar') {
+    sn.style.display='flex';
+    sn.innerHTML=`
+      <button class="ht-sub-btn${htSubTab==='chore'?' active':''}" onclick="htSwitchSub('chore')">집안일</button>
+      <button class="ht-sub-btn${htSubTab==='habit'?' active':''}" onclick="htSwitchSub('habit')">영양제</button>
+    `;
+  } else {
+    sn.style.display='flex';
+    sn.innerHTML=`
+      <button class="ht-sub-btn${htSubTab==='chore'?' active':''}" onclick="htSwitchSub('chore')">집안일</button>
+      <button class="ht-sub-btn${htSubTab==='habit'?' active':''}" onclick="htSwitchSub('habit')">영양제</button>
+    `;
+  }
+}
+
+function htSwitchMainTab(tab) {
+  htMainTab=tab;
+  document.getElementById('ht-btn-cal').classList.toggle('active',tab==='calendar');
+  document.getElementById('ht-btn-detail').classList.toggle('active',tab==='detail');
+  document.getElementById('ht-calendar-view').style.display=tab==='calendar'?'':'none';
+  document.getElementById('ht-detail-view').style.display=tab==='detail'?'':'none';
+  htUpdateSubnav();
+  htRenderCurrent();
+}
+
+function htSwitchSub(sub) {
+  htSubTab=sub;
+  htUpdateSubnav();
+  htRenderCurrent();
+}
+
+async function htOnPeriodChange() {
+  htYear=parseInt(document.getElementById('ht-year-sel').value);
+  htMonth=parseInt(document.getElementById('ht-month-sel').value);
+  await Promise.all([htLoadCRecords(),htLoadHRecords()]);
+  htRenderCurrent();
+}
+
+function htRenderCurrent() {
+  if(htMainTab==='calendar') htRenderCalView();
+  else htRenderDetailView();
+}
+
+function htRenderCalView() {
+  document.getElementById('ht-cal-chore-view').style.display=htSubTab==='chore'?'':'none';
+  document.getElementById('ht-cal-habit-view').style.display=htSubTab==='habit'?'':'none';
+  if(htSubTab==='chore') htRenderChoreCalGrid();
+  else htRenderHabitCalGrid();
+}
+
+function htRenderChoreCalGrid() {
+  const days=getDaysInMonth(htYear,htMonth);
+  const firstDow=getFirstDow(htYear,htMonth);
+  let html='';
+  for(let i=0;i<firstDow;i++) html+=`<div class="ht-cell" style="background:transparent;border:none"></div>`;
+  for(let d=1;d<=days;d++) {
+    const ds=`${htYear}-${String(htMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const recs=htCRecords[ds]||{};
+    const isToday=htYear===htTodayY&&htMonth===htTodayM&&d===htTodayD;
+    const trueDow=new Date(ds+'T00:00:00').getDay(); // 0=일 ... 6=토 (달력 배치 순서와 무관하게 실제 요일로 색 판단)
+    const dateColor=trueDow===0?'#ef4444':trueDow===6?'#3b82f6':'var(--text)';
+    const chips=htChores.filter(c=>recs[c.id]?.done)
+      .map(c=>`<div class="ht-name-chip" style="background:${c.color}20;color:${c.color};border:1px solid ${c.color}40">${c.name}</div>`).join('');
+    html+=`<div class="ht-cell${isToday?' today':''}" onclick="htOpenDaySheet('${ds}')">
+      <div class="ht-cell-date" style="color:${dateColor}">${d}</div>
+      <div class="ht-chip-col">${chips}</div>
+    </div>`;
+  }
+  document.getElementById('ht-chore-cal-grid').innerHTML=html;
+}
+
+function htRenderHabitCalGrid() {
+  const days=getDaysInMonth(htYear,htMonth);
+  const firstDow=getFirstDow(htYear,htMonth);
+  let html='';
+  for(let i=0;i<firstDow;i++) html+=`<div class="ht-cell" style="background:transparent;border:none"></div>`;
+  for(let d=1;d<=days;d++) {
+    const ds=`${htYear}-${String(htMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const recs=htHRecords[ds]||{};
+    const isToday=htYear===htTodayY&&htMonth===htTodayM&&d===htTodayD;
+    const trueDow=new Date(ds+'T00:00:00').getDay(); // 0=일 ... 6=토 (달력 배치 순서와 무관하게 실제 요일로 색 판단)
+    const dateColor=trueDow===0?'#ef4444':trueDow===6?'#3b82f6':'var(--text)';
+    const chips=htHabits.filter(h=>recs[h.id]?.done)
+      .map(h=>`<div class="ht-name-chip" style="background:${h.color}20;color:${h.color};border:1px solid ${h.color}40">${h.name}</div>`).join('');
+    html+=`<div class="ht-cell${isToday?' today':''}" onclick="htOpenHabitDaySheet('${ds}')">
+      <div class="ht-cell-date" style="color:${dateColor}">${d}</div>
+      <div class="ht-chip-col">${chips}</div>
+    </div>`;
+  }
+  document.getElementById('ht-habit-cal-grid').innerHTML=html;
+}
+
+function htRenderDetailView() {
+  document.getElementById('ht-detail-chore-view').style.display=htSubTab==='chore'?'':'none';
+  document.getElementById('ht-detail-habit-view').style.display=htSubTab==='habit'?'':'none';
+  if(htSubTab==='chore') htRenderChoreDetail();
+  else htRenderHabitDetail();
+}
+
+function htRenderChoreDetail() {
+  const days=getDaysInMonth(htYear,htMonth);
+  const daysArr=[];
+  for(let d=1;d<=days;d++) daysArr.push(`${htYear}-${String(htMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
+  const html=htChores.map(c => {
+    let dots=daysArr.map(ds => {
+      const done=htCRecords[ds]?.[c.id]?.done;
+      return `<div class="ht-detail-dot${done?' filled':''}" style="${done?'background:'+c.color:''};border-color:${c.color}" onclick="htToggleChoreDot('${ds}','${c.id}',true)"></div>`;
+    }).join('');
+    const cnt=daysArr.filter(ds=>htCRecords[ds]?.[c.id]?.done).length;
+    return `<div class="ht-detail-row">
+      <div class="ht-detail-label"><span style="color:${c.color};margin-right:6px">●</span>${c.name} <span style="font-size:12px;color:var(--sub);font-weight:400">${cnt}/${days}일</span></div>
+      <div class="ht-detail-dots">${dots}</div>
+      <button class="btn btn-ghost btn-xs" onclick="htDeleteItem('chore','${c.id}')">삭제</button>
+    </div>`;
+  }).join('') || '<div style="color:var(--sub);font-size:14px">항목이 없습니다. 항목을 추가해보세요.</div>';
+  document.getElementById('ht-detail-chore-view').innerHTML=html;
+}
+
+function htRenderHabitDetail() {
+  const days=getDaysInMonth(htYear,htMonth);
+  const daysArr=[];
+  for(let d=1;d<=days;d++) daysArr.push(`${htYear}-${String(htMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
+  const html=htHabits.map(h => {
+    let dots=daysArr.map(ds => {
+      const done=htHRecords[ds]?.[h.id]?.done;
+      return `<div class="ht-detail-dot${done?' filled':''}" style="${done?'background:'+h.color:''};border-color:${h.color}" onclick="htToggleHabitDot('${ds}','${h.id}',true)"></div>`;
+    }).join('');
+    const cnt=daysArr.filter(ds=>htHRecords[ds]?.[h.id]?.done).length;
+    return `<div class="ht-detail-row">
+      <div class="ht-detail-label"><span style="color:${h.color};margin-right:6px">●</span>${h.name} <span style="font-size:12px;color:var(--sub);font-weight:400">${cnt}/${days}일</span></div>
+      <div class="ht-detail-dots">${dots}</div>
+      <button class="btn btn-ghost btn-xs" onclick="htDeleteItem('habit','${h.id}')">삭제</button>
+    </div>`;
+  }).join('') || '<div style="color:var(--sub);font-size:14px">항목이 없습니다. 항목을 추가해보세요.</div>';
+  document.getElementById('ht-detail-habit-view').innerHTML=html;
+}
+
+// Day sheet - chore
+function htOpenDaySheet(ds) {
+  document.getElementById('ht-day-title').textContent=ds;
+  const recs=htCRecords[ds]||{};
+  document.getElementById('ht-day-items').innerHTML=htChores.map(c => {
+    const done=recs[c.id]?.done;
+    return `<div class="ht-day-item">
+      <div class="ht-day-dot" style="background:${done?c.color:'#e2e8f0'};border:2px solid ${c.color}" onclick="htToggleChoreDot('${ds}','${c.id}',false,true)"></div>
+      <div class="ht-day-name">${c.name}</div>
+      <span style="font-size:13px;color:${done?'var(--success)':'var(--sub)'}">${done?'완료':'미완료'}</span>
+    </div>`;
+  }).join('') || '<div style="color:var(--sub)">항목이 없습니다</div>';
+  document.getElementById('ht-day-overlay').classList.add('open');
+  document.getElementById('ht-day-bs-overlay').classList.add('open');
+}
+function htCloseDaySheet() {
+  document.getElementById('ht-day-overlay').classList.remove('open');
+  document.getElementById('ht-day-bs-overlay').classList.remove('open');
+}
+
+// Day sheet - habit
+function htOpenHabitDaySheet(ds) {
+  document.getElementById('ht-habit-day-title').textContent=ds;
+  const recs=htHRecords[ds]||{};
+  document.getElementById('ht-habit-day-items').innerHTML=htHabits.map(h => {
+    const done=recs[h.id]?.done;
+    return `<div class="ht-day-item">
+      <div class="ht-day-dot" style="background:${done?h.color:'#e2e8f0'};border:2px solid ${h.color}" onclick="htToggleHabitDot('${ds}','${h.id}',false,true)"></div>
+      <div class="ht-day-name">${h.name}</div>
+      <span style="font-size:13px;color:${done?'var(--success)':'var(--sub)'}">${done?'완료':'미완료'}</span>
+    </div>`;
+  }).join('') || '<div style="color:var(--sub)">항목이 없습니다</div>';
+  document.getElementById('ht-habit-day-overlay').classList.add('open');
+  document.getElementById('ht-habit-day-bs-overlay').classList.add('open');
+}
+function htCloseHabitDaySheet() {
+  document.getElementById('ht-habit-day-overlay').classList.remove('open');
+  document.getElementById('ht-habit-day-bs-overlay').classList.remove('open');
+}
+
+// Toggle functions
+async function htToggleChoreDot(ds, cid, fromDetail=false, fromSheet=false) {
+  if(!htCRecords[ds]) htCRecords[ds]={};
+  const cur=htCRecords[ds][cid];
+  const done=!cur?.done;
+  if(cur) {
+    await SB.from('chore_records').update({done}).eq('id',cur.id);
+    cur.done=done;
+  } else {
+    const nr={id:uid(),chore_id:cid,date:ds,done};
+    await SB.from('chore_records').insert(nr);
+    htCRecords[ds][cid]=nr;
+  }
+  if(fromSheet) {
+    htOpenDaySheet(ds);      // 시트 재렌더
+    htRenderChoreCalGrid();  // 달력 배경도 즉시 업데이트
+  } else if(fromDetail) htRenderChoreDetail();
+  else htRenderChoreCalGrid();
+}
+
+async function htToggleHabitDot(ds, hid, fromDetail=false, fromSheet=false) {
+  if(!htHRecords[ds]) htHRecords[ds]={};
+  const cur=htHRecords[ds][hid];
+  const done=!cur?.done;
+  if(cur) {
+    await SB.from('habit_records').update({done}).eq('id',cur.id);
+    cur.done=done;
+  } else {
+    const nr={id:uid(),habit_id:hid,date:ds,done};
+    await SB.from('habit_records').insert(nr);
+    htHRecords[ds][hid]=nr;
+  }
+  if(fromSheet) {
+    htOpenHabitDaySheet(ds);
+    htRenderHabitCalGrid();  // 달력 배경도 즉시 업데이트
+  } else if(fromDetail) htRenderHabitDetail();
+  else htRenderHabitCalGrid();
+}
+
+// Add item
+function htOpenAddItem() {
+  const type=htSubTab;
+  htAddType=type;
+  htSelectedColor=HT_COLORS[0];
+  document.getElementById('ht-add-title').textContent=type==='chore'?'집안일 항목 추가':'영양제 항목 추가';
+  document.getElementById('ht-add-name').value='';
+  // Color picker
+  document.getElementById('ht-color-picker').innerHTML=HT_COLORS.map(c=>
+    `<div onclick="htSelectColor('${c}')" style="width:28px;height:28px;border-radius:50%;background:${c};cursor:pointer;border:3px solid ${c===htSelectedColor?'#000':'transparent'}"></div>`
+  ).join('');
+  openModal('ht-add-overlay');
+}
+function htSelectColor(c) {
+  htSelectedColor=c;
+  document.getElementById('ht-color-picker').innerHTML=HT_COLORS.map(x=>
+    `<div onclick="htSelectColor('${x}')" style="width:28px;height:28px;border-radius:50%;background:${x};cursor:pointer;border:3px solid ${x===c?'#000':'transparent'}"></div>`
+  ).join('');
+}
+async function htConfirmAddItem() {
+  const name=document.getElementById('ht-add-name').value.trim();
+  if(!name) { alert('이름을 입력하세요'); return; }
+  const obj={id:uid(), name, color:htSelectedColor, sort_order: htAddType==='chore'?htChores.length:htHabits.length};
+  const table=htAddType==='chore'?'chores':'habits';
+  const {error}=await SB.from(table).insert(obj);
+  if(error){ alert('저장 실패: '+error.message); return; }
+  // DB 재로드 없이 로컬 배열에 즉시 추가 (타이밍 문제 방지)
+  if(htAddType==='chore') htChores.push(obj);
+  else htHabits.push(obj);
+  document.getElementById('ht-add-name').value='';
+  closeModal('ht-add-overlay');
+  // 추가한 타입의 서브탭으로 전환 후 두 뷰 모두 업데이트
+  htSubTab = htAddType === 'chore' ? 'chore' : 'habit';
+  htUpdateSubnav();
+  htRenderCalView();
+  htRenderDetailView();
+}
+
+// Delete item
+async function htDeleteItem(type, id) {
+  if(!confirm('항목을 삭제하시겠습니까?')) return;
+  const table=type==='chore'?'chores':'habits';
+  await SB.from(table).delete().eq('id',id);
+  if(type==='chore') await htLoadChores();
+  else await htLoadHabits();
+  htRenderCurrent();
+}
+
+// Reorder
+function htOpenReorder() {
+  const type=htSubTab;
+  htReorderType=type;
+  htReorderList=type==='chore'?[...htChores]:[...htHabits];
+  document.getElementById('ht-reorder-title').textContent=type==='chore'?'집안일 순서 변경':'영양제 순서 변경';
+  const listEl=document.getElementById('ht-reorder-list');
+  listEl.innerHTML=htReorderList.map(item=>
+    `<div class="ht-reorder-item" data-id="${item.id}">
+      <span style="color:var(--sub);cursor:grab">⠿</span>
+      <span style="color:${item.color}">●</span>
+      <span>${item.name}</span>
+    </div>`
+  ).join('');
+  new Sortable(listEl,{animation:150,handle:'span:first-child'});
+  openModal('ht-reorder-overlay');
+}
+async function htConfirmReorder() {
+  const listEl=document.getElementById('ht-reorder-list');
+  const ids=[...listEl.children].map(el=>el.dataset.id);
+  const table=htReorderType==='chore'?'chores':'habits';
+  const arr=htReorderType==='chore'?htChores:htHabits;
+  for(let i=0;i<ids.length;i++) {
+    await SB.from(table).update({sort_order:i}).eq('id',ids[i]);
+    const item=arr.find(x=>x.id===ids[i]);
+    if(item) item.sort_order=i;
+  }
+  if(htReorderType==='chore') htChores.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  else htHabits.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  closeModal('ht-reorder-overlay');
+  htRenderCurrent();
+}
+
+// Add year
+function htOpenAddYear() { document.getElementById('ht-new-year').value=''; openModal('ht-year-overlay'); }
+async function htConfirmAddYear() {
+  const y=parseInt(document.getElementById('ht-new-year').value);
+  if(!y||y<2020||y>2040) { alert('올바른 연도를 입력하세요'); return; }
+  if(!htYears.includes(y)) {
+    htYears.push(y);
+    htYears.sort((a,b)=>a-b);
+    localStorage.setItem('ht_years',JSON.stringify(htYears));
+    try { await SB.from('settings').upsert({key:'years',value:htYears}); } catch{}
+    htRenderYearSel();
+  }
+  closeModal('ht-year-overlay');
+}
+</script>
+</body>
+</html>
