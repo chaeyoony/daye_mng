@@ -341,6 +341,23 @@ html,body{overflow-x:hidden}
         <div id="cal-tag-legend" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px"></div>
       </div>
 
+      <!-- All events -->
+      <div class="page" id="page-allevents">
+        <div class="page-header">
+          <h2>전체 일정</h2>
+          <button class="btn btn-primary btn-sm" onclick="openEventModal()">+ 일정 추가</button>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <button class="ht-sub-btn active" id="ae-btn-upcoming" onclick="aeSetView('upcoming')">다가오는 일정</button>
+          <button class="ht-sub-btn" id="ae-btn-past" onclick="aeSetView('past')">지난 일정</button>
+          <button class="ht-sub-btn" id="ae-btn-all" onclick="aeSetView('all')">전체</button>
+        </div>
+        <input type="text" id="ae-search" placeholder="일정 검색..." oninput="renderAllEvents()"
+          style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--bg);margin-bottom:10px">
+        <div id="ae-tag-pills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"></div>
+        <div id="ae-list"></div>
+      </div>
+
       <!-- Weekly -->
       <div class="page" id="page-weekly">
         <div class="page-header">
@@ -760,6 +777,7 @@ const MODES = {
     navItems: [
       {id:'dashboard', icon:'🏠', label:'대시보드'},
       {id:'calendar', icon:'📅', label:'이번 달 일정'},
+      {id:'allevents', icon:'🗓', label:'전체 일정'},
       {id:'weekly', icon:'✅', label:'이번 주 할 일'},
       {id:'today', icon:'☀️', label:'오늘 할 일'},
       {id:'notes', icon:'📒', label:'강의노트'},
@@ -776,6 +794,7 @@ const MODES = {
     navItems: [
       {id:'dashboard', icon:'🏠', label:'대시보드'},
       {id:'calendar', icon:'📅', label:'이번 달 일정'},
+      {id:'allevents', icon:'🗓', label:'전체 일정'},
       {id:'weekly', icon:'✅', label:'이번 주 할 일'},
       {id:'today', icon:'☀️', label:'오늘 할 일'},
       {id:'habit', icon:'🌿', label:'해빗트래커'},
@@ -1020,7 +1039,7 @@ function navigateTo(pg) {
 }
 
 function topbarAdd() {
-  if(currentPage==='calendar') openEventModal();
+  if(currentPage==='calendar' || currentPage==='allevents') openEventModal();
   else if(currentPage==='weekly') openTodoModal('weekly');
   else if(currentPage==='today') openTodoModal('today');
 }
@@ -1040,6 +1059,7 @@ function closeSidebar() {
 function renderPage(pg) {
   if(pg==='dashboard') renderDashboard();
   else if(pg==='calendar') renderCalendar();
+  else if(pg==='allevents') renderAllEvents();
   else if(pg==='weekly') renderWeekly();
   else if(pg==='today') renderToday();
   else if(pg==='notes') renderNotes();
@@ -1283,6 +1303,61 @@ function moveCalMonth(dir) {
   renderCalendar();
 }
 
+
+// ============================================================
+// ALL EVENTS (전체 일정 목록)
+// ============================================================
+let aeView = 'upcoming', aeTag = '전체';
+function aeSetView(v) { aeView = v; renderAllEvents(); }
+function aeSetTag(t) { aeTag = t; renderAllEvents(); }
+function renderAllEvents() {
+  const td = today();
+  ['upcoming','past','all'].forEach(v => {
+    const b = document.getElementById('ae-btn-'+v);
+    if(b) b.classList.toggle('active', aeView===v);
+  });
+  const pill = (label, on, fn) => `<button class="ht-sub-btn${on?' active':''}" onclick="${fn}">${label}</button>`;
+  document.getElementById('ae-tag-pills').innerHTML =
+    pill('전체', aeTag==='전체', "aeSetTag('전체')") +
+    DB.eventTags.map(t => pill(t.name, aeTag===t.name, `aeSetTag('${t.name}')`)).join('');
+
+  const q = (document.getElementById('ae-search').value || '').trim().toLowerCase();
+  let list = DB.events.filter(e => e.date);
+  if(aeTag !== '전체') list = list.filter(e => e.tag === aeTag);
+  if(q) list = list.filter(e => (e.content||'').toLowerCase().includes(q) || (e.memo||'').toLowerCase().includes(q));
+  // 반복 일정은 시리즈 종료일(없으면 무기한)까지 이어지므로 '지난 일정'이 아님
+  const isOngoing = e => e.repeat && e.repeat!=='none' && (!e.date_end || e.date_end >= td);
+  const endOf = e => e.date_end || e.date;
+  if(aeView==='upcoming') list = list.filter(e => isOngoing(e) || endOf(e) >= td);
+  else if(aeView==='past') list = list.filter(e => !isOngoing(e) && endOf(e) < td);
+  list.sort((a,b) => a.date===b.date ? (a.time||'99').localeCompare(b.time||'99') : a.date.localeCompare(b.date));
+  if(aeView==='past') list.reverse();
+
+  if(!list.length) {
+    document.getElementById('ae-list').innerHTML = '<div style="color:var(--sub);font-size:13px;padding:20px 0;text-align:center">표시할 일정이 없습니다</div>';
+    return;
+  }
+  let html = '', lastMonth = '';
+  list.forEach(e => {
+    const month = e.date.slice(0,7);
+    if(month !== lastMonth) {
+      lastMonth = month;
+      html += `<div style="font-size:13px;font-weight:700;color:var(--accent);margin:16px 0 6px">${month.slice(0,4)}년 ${parseInt(month.slice(5))}월</div>`;
+    }
+    const tg = DB.eventTags.find(x => x.name===e.tag);
+    const col = tg ? tg.color : '#6366f1';
+    const dow = '일월화수목금토'[new Date(e.date+'T00:00:00').getDay()];
+    const rep = e.repeat==='weekly' ? ' 🔄 매주' : e.repeat==='monthly' ? ' 🔄 매월' : '';
+    const range = (e.date_end && (!e.repeat || e.repeat==='none')) ? ` ~ ${e.date_end.slice(5)}` : (e.date_end ? ` (${e.date_end.slice(5)}까지)` : '');
+    html += `<div class="dash-event-item" style="cursor:pointer;display:flex;align-items:center;gap:8px" onclick="showEventDetail('${e.id}','${e.date}')">
+      <span style="font-size:12px;color:var(--sub);min-width:78px">${e.date.slice(5)} (${dow})${range?'':''}</span>
+      <span class="tag-badge" style="background:${col};color:#fff">${e.tag||''}</span>
+      <span style="flex:1;font-size:13px;min-width:0">${e.time?e.time+' ':''}${e.content}<span style="color:var(--sub);font-size:11px">${range}${rep}</span></span>
+    </div>`;
+  });
+  document.getElementById('ae-list').innerHTML = html;
+}
+
 // Event detail
 function showEventDetail(id, occDate) {
   _viewingEventId = id; _viewingOccDate = occDate || null;
@@ -1384,6 +1459,7 @@ async function saveEvent() {
     editingEventOccDate = null; _editRepeatMode = null;
     closeModal('modal-event');
     renderCalendar();
+    if(currentPage==='allevents') renderAllEvents();
     if(currentPage==='dashboard') renderDashboard();
     return;
   }
@@ -1412,6 +1488,7 @@ async function saveEvent() {
   editingEventOccDate = null; _editRepeatMode = null;
   closeModal('modal-event');
   renderCalendar();
+  if(currentPage==='allevents') renderAllEvents();
   if(currentPage==='dashboard') renderDashboard();
 }
 
@@ -1455,6 +1532,7 @@ async function deleteEvent() {
   editingEventOccDate = null; _editRepeatMode = null;
   closeModal('modal-event');
   renderCalendar();
+  if(currentPage==='allevents') renderAllEvents();
   if(currentPage==='dashboard') renderDashboard();
 }
 
@@ -2136,6 +2214,7 @@ async function saveTagEdit(id) {
   }
   renderTagList();
   if(currentPage==='calendar') renderCalendar();
+  if(currentPage==='allevents') renderAllEvents();
   if(currentPage==='dashboard') renderDashboard();
 }
 async function addTag() {
