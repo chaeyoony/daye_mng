@@ -35,6 +35,10 @@ body.work-mode {
   --accent: #0ea5e9;
   --accent-light: #e0f2fe;
 }
+body.all-mode {
+  --accent: #6366f1;
+  --accent-light: #eef2ff;
+}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 a{text-decoration:none;color:inherit}
@@ -290,6 +294,7 @@ html,body{overflow-x:hidden}
     <div class="sb-mode-toggle">
       <button class="mode-btn active" onclick="switchMode('school')">학교</button>
       <button class="mode-btn" onclick="switchMode('work')">일상</button>
+      <button class="mode-btn" onclick="switchMode('all')">일정</button>
     </div>
     <nav class="sb-nav" id="sb-nav"></nav>
   </nav>
@@ -341,21 +346,19 @@ html,body{overflow-x:hidden}
         <div id="cal-tag-legend" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px"></div>
       </div>
 
-      <!-- All events -->
-      <div class="page" id="page-allevents">
+      <!-- All calendar (학교+일상 합친 일정) -->
+      <div class="page" id="page-allcal">
         <div class="page-header">
           <h2>전체 일정</h2>
-          <button class="btn btn-primary btn-sm" onclick="openEventModal()">+ 일정 추가</button>
+          <div id="ac-legend" style="display:flex;gap:8px"></div>
         </div>
-        <div style="display:flex;gap:6px;margin-bottom:10px">
-          <button class="ht-sub-btn active" id="ae-btn-upcoming" onclick="aeSetView('upcoming')">다가오는 일정</button>
-          <button class="ht-sub-btn" id="ae-btn-past" onclick="aeSetView('past')">지난 일정</button>
-          <button class="ht-sub-btn" id="ae-btn-all" onclick="aeSetView('all')">전체</button>
+        <div class="cal-nav">
+          <button onclick="moveCalMonth(-1)">‹</button>
+          <span id="ac-month-label"></span>
+          <button onclick="moveCalMonth(1)">›</button>
         </div>
-        <input type="text" id="ae-search" placeholder="일정 검색..." oninput="renderAllEvents()"
-          style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--bg);margin-bottom:10px">
-        <div id="ae-tag-pills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"></div>
-        <div id="ae-list"></div>
+        <div class="cal-grid" id="ac-grid"></div>
+        <div style="margin-top:10px;font-size:12px;color:var(--sub)">일정 추가·수정은 학교/일상 탭에서 해주세요.</div>
       </div>
 
       <!-- Weekly -->
@@ -529,7 +532,7 @@ html,body{overflow-x:hidden}
     <div id="event-detail-content"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-event-detail')">닫기</button>
-      <button class="btn btn-primary btn-sm" onclick="editCurrentEvent()">수정</button>
+      <button class="btn btn-primary btn-sm" id="ev-detail-edit-btn" onclick="editCurrentEvent()">수정</button>
     </div>
   </div>
 </div>
@@ -777,7 +780,6 @@ const MODES = {
     navItems: [
       {id:'dashboard', icon:'🏠', label:'대시보드'},
       {id:'calendar', icon:'📅', label:'이번 달 일정'},
-      {id:'allevents', icon:'🗓', label:'전체 일정'},
       {id:'weekly', icon:'✅', label:'이번 주 할 일'},
       {id:'today', icon:'☀️', label:'오늘 할 일'},
       {id:'notes', icon:'📒', label:'강의노트'},
@@ -794,7 +796,6 @@ const MODES = {
     navItems: [
       {id:'dashboard', icon:'🏠', label:'대시보드'},
       {id:'calendar', icon:'📅', label:'이번 달 일정'},
-      {id:'allevents', icon:'🗓', label:'전체 일정'},
       {id:'weekly', icon:'✅', label:'이번 주 할 일'},
       {id:'today', icon:'☀️', label:'오늘 할 일'},
       {id:'habit', icon:'🌿', label:'해빗트래커'},
@@ -803,7 +804,21 @@ const MODES = {
     noteGroups: [], noteLabel: '', noteGroupAll: '전체',
     dashCards: ['week-events','today-todos','week-todos'],
   },
+  // 학교 + 일상 일정을 한 달력에 합쳐서 보여주는 읽기 전용 모드
+  all: {
+    label: '일정', title: '다예 전체 일정',
+    accent: '#6366f1', accentLight: '#eef2ff',
+    navItems: [
+      {id:'allcal', icon:'🗓', label:'전체 일정'},
+    ],
+    eventTags: [], noteGroups: [], noteLabel: '', noteGroupAll: '전체',
+    dashCards: [],
+  },
 };
+const ALL_SOURCES = [
+  {mode:'school', label:'학교', color:'#3b82f6'},
+  {mode:'work',   label:'일상', color:'#22c55e'},
+];
 
 // ============================================================
 // STATE
@@ -912,6 +927,14 @@ function openSettings() {
 
 async function loadAll() {
   const mode = currentMode;
+  if(mode === 'all') {
+    try {
+      const { data } = await SB.from('dash_events').select('id,mode,content,tag,date,date_end,time,repeat,exceptions,memo').in('mode', ALL_SOURCES.map(x=>x.mode));
+      DB.events = data || [];
+      DB.todos = []; DB.weeklyTodos = []; DB.notes = []; DB.curricula = []; DB.eventTags = []; DB.noteGroups = [];
+    } catch(e) { console.error('loadAll(all) error', e); }
+    return;
+  }
   try {
     const [evRes, tdRes, wkRes, ntRes, crRes, tgRes, ngRes, stRes] = await Promise.all([
       SB.from('dash_events').select('id,content,tag,date,date_end,time,repeat,exceptions,memo').eq('mode', mode),
@@ -954,12 +977,13 @@ function applyModeUI() {
   document.title = m.title;
   document.getElementById('sb-title').textContent = m.title;
   document.getElementById('page-title').textContent = m.title;
-  document.body.className = currentMode === 'work' ? 'work-mode' : '';
+  document.body.className = currentMode === 'work' ? 'work-mode' : currentMode === 'all' ? 'all-mode' : '';
   // mode buttons
   document.querySelectorAll('.mode-btn').forEach(b => {
     const isSchool = b.textContent === '학교';
     const isWork = b.textContent === '일상';
-    b.classList.toggle('active', (isSchool && currentMode==='school') || (isWork && currentMode==='work'));
+    const isAll = b.textContent === '일정';
+    b.classList.toggle('active', (isSchool && currentMode==='school') || (isWork && currentMode==='work') || (isAll && currentMode==='all'));
   });
   renderTopbarModeToggle();
 }
@@ -972,6 +996,7 @@ function renderTopbarModeToggle() {
   el.innerHTML = `
     <button onclick="switchMode('school')" style="padding:5px 12px;border:none;border-radius:8px;font-size:12px;font-weight:700;${currentMode==='school'?active:inactive}">학교</button>
     <button onclick="switchMode('work')" style="padding:5px 12px;border:none;border-radius:8px;font-size:12px;font-weight:700;${currentMode==='work'?active:inactive}">일상</button>
+    <button onclick="switchMode('all')" style="padding:5px 12px;border:none;border-radius:8px;font-size:12px;font-weight:700;${currentMode==='all'?active:inactive}">일정</button>
   `;
 }
 
@@ -1000,19 +1025,20 @@ async function switchMode(mode) {
   if(currentMode === mode) return;
   currentMode = mode;
   localStorage.setItem('current_mode', mode);
-  currentPage = 'dashboard';
-  localStorage.setItem('current_page', 'dashboard');
+  const firstPage = MODES[mode].navItems[0].id;
+  currentPage = firstPage;
+  localStorage.setItem('current_page', firstPage);
   htInitialized = false;
   applyModeUI();
   renderNav();
   renderBottomNav();
   await loadAll();
-  navigateTo('dashboard');
+  navigateTo(firstPage);
 }
 
 function navigateTo(pg) {
   const m = MODES[currentMode];
-  if(!m.navItems.find(x => x.id===pg)) pg = 'dashboard';
+  if(!m.navItems.find(x => x.id===pg)) pg = m.navItems[0].id;
   currentPage = pg;
   localStorage.setItem('current_page', pg);
   // 탭 전환 시 이전 페이지에서 남아있던 가로 스크롤 위치가 새 페이지에 그대로 남아
@@ -1039,7 +1065,7 @@ function navigateTo(pg) {
 }
 
 function topbarAdd() {
-  if(currentPage==='calendar' || currentPage==='allevents') openEventModal();
+  if(currentPage==='calendar') openEventModal();
   else if(currentPage==='weekly') openTodoModal('weekly');
   else if(currentPage==='today') openTodoModal('today');
 }
@@ -1059,7 +1085,7 @@ function closeSidebar() {
 function renderPage(pg) {
   if(pg==='dashboard') renderDashboard();
   else if(pg==='calendar') renderCalendar();
-  else if(pg==='allevents') renderAllEvents();
+  else if(pg==='allcal') renderAllCal();
   else if(pg==='weekly') renderWeekly();
   else if(pg==='today') renderToday();
   else if(pg==='notes') renderNotes();
@@ -1300,62 +1326,64 @@ function moveCalMonth(dir) {
   calMonth += dir;
   if(calMonth>12){calMonth=1;calYear++;}
   if(calMonth<1){calMonth=12;calYear--;}
-  renderCalendar();
+  if(currentMode==='all') renderAllCal(); else renderCalendar();
 }
 
 
 // ============================================================
-// ALL EVENTS (전체 일정 목록)
+// ALL CALENDAR (학교 + 일상 합친 전체 일정 달력)
 // ============================================================
-let aeView = 'upcoming', aeTag = '전체';
-function aeSetView(v) { aeView = v; renderAllEvents(); }
-function aeSetTag(t) { aeTag = t; renderAllEvents(); }
-function renderAllEvents() {
+function renderAllCal() {
+  document.getElementById('ac-month-label').textContent = `${calYear}년 ${calMonth}월`;
+  document.getElementById('ac-legend').innerHTML = ALL_SOURCES.map(x =>
+    `<span style="background:${x.color};color:#fff;padding:4px 12px;border-radius:14px;font-size:12px;font-weight:600">${x.label}</span>`).join('');
   const td = today();
-  ['upcoming','past','all'].forEach(v => {
-    const b = document.getElementById('ae-btn-'+v);
-    if(b) b.classList.toggle('active', aeView===v);
+  const days = getDaysInMonth(calYear, calMonth);
+  const firstDow = getFirstDow(calYear, calMonth);
+  const gridStart = new Date(calYear, calMonth-1, 1);
+  gridStart.setDate(gridStart.getDate() - firstDow);
+  const rem = (firstDow + days) % 7 === 0 ? 0 : 7 - ((firstDow + days) % 7);
+  const gridEnd = new Date(calYear, calMonth-1, days);
+  gridEnd.setDate(gridEnd.getDate() + rem);
+  const gs = fmtDate(gridStart), ge = fmtDate(gridEnd);
+
+  const dayMap = {};
+  DB.events.forEach(e => {
+    getEventDates(e, ge).forEach(d => {
+      if(d >= gs && d <= ge) (dayMap[d] = dayMap[d] || []).push({...e, occDate:d});
+    });
   });
-  const pill = (label, on, fn) => `<button class="ht-sub-btn${on?' active':''}" onclick="${fn}">${label}</button>`;
-  document.getElementById('ae-tag-pills').innerHTML =
-    pill('전체', aeTag==='전체', "aeSetTag('전체')") +
-    DB.eventTags.map(t => pill(t.name, aeTag===t.name, `aeSetTag('${t.name}')`)).join('');
+  Object.values(dayMap).forEach(arr => arr.sort((a,b) => (a.time||'99').localeCompare(b.time||'99')));
 
-  const q = (document.getElementById('ae-search').value || '').trim().toLowerCase();
-  let list = DB.events.filter(e => e.date);
-  if(aeTag !== '전체') list = list.filter(e => e.tag === aeTag);
-  if(q) list = list.filter(e => (e.content||'').toLowerCase().includes(q) || (e.memo||'').toLowerCase().includes(q));
-  // 반복 일정은 시리즈 종료일(없으면 무기한)까지 이어지므로 '지난 일정'이 아님
-  const isOngoing = e => e.repeat && e.repeat!=='none' && (!e.date_end || e.date_end >= td);
-  const endOf = e => e.date_end || e.date;
-  if(aeView==='upcoming') list = list.filter(e => isOngoing(e) || endOf(e) >= td);
-  else if(aeView==='past') list = list.filter(e => !isOngoing(e) && endOf(e) < td);
-  list.sort((a,b) => a.date===b.date ? (a.time||'99').localeCompare(b.time||'99') : a.date.localeCompare(b.date));
-  if(aeView==='past') list.reverse();
+  const holidayMap = {};
+  new Set([gridStart.getFullYear(), gridEnd.getFullYear()]).forEach(y => {
+    getKoreanHolidays(y).forEach(h => {
+      if(h.date >= gs && h.date <= ge) (holidayMap[h.date] = holidayMap[h.date] || []).push(h.name);
+    });
+  });
 
-  if(!list.length) {
-    document.getElementById('ae-list').innerHTML = '<div style="color:var(--sub);font-size:13px;padding:20px 0;text-align:center">표시할 일정이 없습니다</div>';
-    return;
-  }
-  let html = '', lastMonth = '';
-  list.forEach(e => {
-    const month = e.date.slice(0,7);
-    if(month !== lastMonth) {
-      lastMonth = month;
-      html += `<div style="font-size:13px;font-weight:700;color:var(--accent);margin:16px 0 6px">${month.slice(0,4)}년 ${parseInt(month.slice(5))}월</div>`;
-    }
-    const tg = DB.eventTags.find(x => x.name===e.tag);
-    const col = tg ? tg.color : '#6366f1';
-    const dow = '일월화수목금토'[new Date(e.date+'T00:00:00').getDay()];
-    const rep = e.repeat==='weekly' ? ' 🔄 매주' : e.repeat==='monthly' ? ' 🔄 매월' : '';
-    const range = (e.date_end && (!e.repeat || e.repeat==='none')) ? ` ~ ${e.date_end.slice(5)}` : (e.date_end ? ` (${e.date_end.slice(5)}까지)` : '');
-    html += `<div class="dash-event-item" style="cursor:pointer;display:flex;align-items:center;gap:8px" onclick="showEventDetail('${e.id}','${e.date}')">
-      <span style="font-size:12px;color:var(--sub);min-width:78px">${e.date.slice(5)} (${dow})${range?'':''}</span>
-      <span class="tag-badge" style="background:${col};color:#fff">${e.tag||''}</span>
-      <span style="flex:1;font-size:13px;min-width:0">${e.time?e.time+' ':''}${e.content}<span style="color:var(--sub);font-size:11px">${range}${rep}</span></span>
+  let html = '<div class="cal-dow">월</div><div class="cal-dow">화</div><div class="cal-dow">수</div><div class="cal-dow">목</div><div class="cal-dow">금</div><div class="cal-dow">토</div><div class="cal-dow">일</div>';
+  const total = firstDow + days + rem;
+  for(let i=0;i<total;i++) {
+    const dt = new Date(gridStart); dt.setDate(dt.getDate()+i);
+    const ds = fmtDate(dt), dow = dt.getDay();
+    const other = dt.getMonth() !== calMonth-1;
+    const hol = holidayMap[ds] || [];
+    const evs = dayMap[ds] || [];
+    const cls = hol.length ? 'holiday' : (dow===0?'sun':dow===6?'sat':'');
+    html += `<div class="cal-cell${ds===td?' today':''}${other?' other-month':''}">
+      <div class="cal-date ${cls}">${dt.getDate()}</div>
+      ${hol.map(n => `<div class="holiday-chip">${n}</div>`).join('')}
+      ${(isMobileCal()?evs:evs.slice(0,4)).map(e => {
+        const src = ALL_SOURCES.find(x=>x.mode===e.mode);
+        const bg = src ? src.color : '#6366f1';
+        const t = e.time ? `<span class="ev-time" style="opacity:.85;margin-right:3px">${e.time}</span>` : '';
+        return `<div class="ev-chip" style="background:${bg}" onclick="showEventDetail('${e.id}','${ds}')">${t}${e.content}</div>`;
+      }).join('')}
+      ${(!isMobileCal() && evs.length>4)?`<div style="font-size:9px;color:var(--sub)">+${evs.length-4}개</div>`:''}
     </div>`;
-  });
-  document.getElementById('ae-list').innerHTML = html;
+  }
+  document.getElementById('ac-grid').innerHTML = html;
 }
 
 // Event detail
@@ -1364,7 +1392,10 @@ function showEventDetail(id, occDate) {
   const e = DB.events.find(x => x.id === id); if(!e) return;
   const tg = DB.eventTags.find(x => x.name === e.tag);
   const bg = tg ? tg.color : '#6366f1';
-  let html = `<div style="margin-bottom:12px"><span style="background:${bg};color:#fff;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600">${e.tag||''}</span></div>
+  const src = currentMode==='all' ? ALL_SOURCES.find(x=>x.mode===e.mode) : null;
+  const editBtn = document.getElementById('ev-detail-edit-btn');
+  if(editBtn) editBtn.style.display = currentMode==='all' ? 'none' : '';
+  let html = `<div style="margin-bottom:12px">${src?`<span style="background:${src.color};color:#fff;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;margin-right:6px">${src.label}</span>`:''}<span style="background:${src?'var(--bg)':bg};color:${src?'var(--text)':'#fff'};padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600">${e.tag||''}</span></div>
     <div style="font-size:17px;font-weight:700;margin-bottom:12px">${e.content}</div>
     <div style="font-size:13px;color:var(--sub);margin-bottom:8px">📅 ${occDate||e.date}${e.date_end?' ~ '+e.date_end:''}</div>
     ${e.time ? `<div style="font-size:13px;color:var(--sub);margin-bottom:8px">🕐 ${e.time}</div>` : ''}
@@ -1459,7 +1490,6 @@ async function saveEvent() {
     editingEventOccDate = null; _editRepeatMode = null;
     closeModal('modal-event');
     renderCalendar();
-    if(currentPage==='allevents') renderAllEvents();
     if(currentPage==='dashboard') renderDashboard();
     return;
   }
@@ -1488,7 +1518,6 @@ async function saveEvent() {
   editingEventOccDate = null; _editRepeatMode = null;
   closeModal('modal-event');
   renderCalendar();
-  if(currentPage==='allevents') renderAllEvents();
   if(currentPage==='dashboard') renderDashboard();
 }
 
@@ -1532,7 +1561,6 @@ async function deleteEvent() {
   editingEventOccDate = null; _editRepeatMode = null;
   closeModal('modal-event');
   renderCalendar();
-  if(currentPage==='allevents') renderAllEvents();
   if(currentPage==='dashboard') renderDashboard();
 }
 
@@ -2214,7 +2242,6 @@ async function saveTagEdit(id) {
   }
   renderTagList();
   if(currentPage==='calendar') renderCalendar();
-  if(currentPage==='allevents') renderAllEvents();
   if(currentPage==='dashboard') renderDashboard();
 }
 async function addTag() {
